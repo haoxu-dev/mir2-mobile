@@ -9,6 +9,10 @@
   <img src="screenshots/03_雷电术命中远处怪_全屏.png" width="45%" />
 </p>
 
+<p align="center">
+  <b><a href="https://github.com/haoxu-dev/mir2-mobile/releases/latest">⬇ 下载安装包（p2core.apk · 799 MB · 素材全打进去）</a></b>
+</p>
+
 ---
 
 ## 这是什么
