@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  引擎代码剥离白名单（2026-10-15 builder2 · 针对 class ID 115 缺失事故）
+
+  为什么需要这个文件：
+    开启 "Strip Engine Code" 后，UnityLinker 按"谁被引用"裁剪引擎类型。
+    实测本次出过一次事：GUISkin(Unity class ID 115) 被裁掉，运行时表现为
+      E/Tuanjie: Could not produce class with ID 115.
+      GUIUtility:GetDefaultSkin() -> GUI:DoSetSkin(GUISkin) -> NullReferenceException
+      -> P0BMapWalk.OnGUI() 整条渲染路径失效。
+    本工程的主 UI/地图/行走全部走 OnGUI(IMGUI)，所以 IMGUI 模块必须钉死保留。
+
+  作用范围（刻意收窄，避免把整个引擎塞进包里）：
+    只保留 IMGUIModule —— GUISkin / GUIStyle / GUIUtility / GUI / GUIContent / GUIClip 都在这个程序集里。
+    不动 CoreModule 等其它程序集，包体基本不受影响。
+
+  与 PlayerSettings.stripEngineCode 的关系：
+    stripEngineCode 仍保持开启（历史已验证包 p0a/p0b/p0c 都是剥离态 ~14MB 且 OnGUI 正常工作），
+    本文件是给剥离器的一份"这些别动"清单，二者不冲突。
+-->
+<linker>
+  <!-- 真源码游戏内核（Crystal C# 编译出的 netstandard2.1 程序集）。
+       整个保留：它内部大量走反射、委托和 Type.GetType，IL2CPP 按引用剥离会削掉逻辑。
+       这是 4.66 万行真逻辑，宁可多留几 MB 也不能被裁。 -->
+  <assembly fullname="MirClientCore" preserve="all"/>
+
+  <!-- IMGUI/OnGUI 全套：主 UI 渲染的根基 -->
+  <assembly fullname="UnityEngine.IMGUIModule" preserve="all"/>
+
+  <!-- 文字渲染：聊天框/状态栏文字走它 -->
+  <assembly fullname="UnityEngine.TextRenderingModule" preserve="all"/>
+
+  <!-- 纹理/贴图：素材落地走它 -->
+  <assembly fullname="UnityEngine.CoreModule">
+    <type fullname="UnityEngine.Texture2D" preserve="all"/>
+    <type fullname="UnityEngine.Sprite" preserve="all"/>
+    <type fullname="UnityEngine.Material" preserve="all"/>
+    <type fullname="UnityEngine.Shader" preserve="all"/>
+    <type fullname="UnityEngine.Resources" preserve="all"/>
+  </assembly>
+</linker>

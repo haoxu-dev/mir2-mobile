@@ -1,0 +1,45 @@
+# ---- 游戏素材：版权归原厂，不随仓库分发 ----
+Assets/StreamingAssets/
+Assets/Resources/
+
+# ---- Unity 生成物 ----
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# ---- 编译产物 ----
+*.csproj
+*.sln
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ---- 备份与临时文件 ----
+*.bak*
+*.tmp
+_backups_*/
+_hudchk/
+_tools/
+Evidence/
+aitmpbuild_apk.log
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 密钥 ----
+*.pem
+*.key
+.env
