@@ -43,3 +43,7 @@ desktop.ini
 *.pem
 *.key
 .env
+
+# ---- 工具产出的状态目录 ----
+.omc/
+.claude/
