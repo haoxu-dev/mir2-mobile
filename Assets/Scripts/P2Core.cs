@@ -14,7 +14,7 @@
 //
 // 验收口径：
 //   启动时把第一帧的原始 BGRA 落盘到 persistentDataPath/p2_frame.bgra，
-//   用 adb pull 出来与 PC 基准 C:\ai\tmp\rbshot\frame.bgra 逐字节比。
+//   用 adb pull 出来与 PC 基准 <本机>/tmp\rbshot\frame.bgra 逐字节比。
 //   同尺寸（1104x480）、同数据，不需要缩放，可以直接对比。
 using System;
 using System.Collections;
@@ -76,7 +76,7 @@ public class P2Core : MonoBehaviour
         //   以前只下了 Objects / Objects4 / Objects6 三张，其余 12 张 MLibrary.Initialize()
         //   对不存在的文件**静默造空库**，取图全返回 -1 ⇒ 前层一格都画不出来。
         //   沙巴克皇宫 0150.map 357 格用 Objects、264 格用 Objects3 ⇒ 一半画面直接是黑的。
-        //   这 12 张由 C:/ai/tmp/mk_missing_libs.py 从 client2003 的 WIL（像素与官方 Lib
+        //   这 12 张由 <本机>/tmp/mk_missing_libs.py 从 client2003 的 WIL（像素与官方 Lib
         //   逐像素一致）+ tmcq 的 WZL（Objects8 起只有这一套源）转出，只保留地图引用到的帧。
         //   实测：加进清单并 push 到设备后，沙巴克皇宫地图区非黑率 47.2% → 67.0%。
         "Data/Map/WemadeMir2/Tiles.Lib",
@@ -148,7 +148,7 @@ public class P2Core : MonoBehaviour
         // ★ NewopUI 是 1.76 底栏中段真正的素材源（2026-10-28 补齐）：
         //   FState_utf8.pas L1339 BuildBottomWinSurface 用 g_opui 的 #0/#1/#2/#10..#17 拼底板，
         //   以前没有这张库，只能用 1px 白线横铺补底 ⇒ 屏幕上那一大片死白。
-        //   由 C:\ai\mir_hz\tmcq\data\NewopUI.wzl 转换，见 C:\ai\tmp\ref176\make_newopui_lib.py。
+        //   由 <本机>/mir_hz\tmcq\data\NewopUI.wzl 转换，见 <本机>/tmp\ref176\make_newopui_lib.py。
         //   ★ 少这张 = 底栏中段又是白的，而且 MLibrary 缺图是静默 return，不会报错。
         "Data/NewopUI.Lib",
         "Data/UI_32bit.Lib",
@@ -262,7 +262,7 @@ public class P2Core : MonoBehaviour
         // （详见 PortableLanguage.cs 头部注释与 13:55 的 logcat 证据）。
         "Localization/Chinese.tsv",
         // ── NPC 商人图库（2026-10-30 全量，84 张）──
-        // 由 C:\ai\tmp\run_b\make_npc_lib.py 从 1.76 原版 npc.wzl / npc2.wzl 转出：
+        // 由 <本机>/tmp\run_b\make_npc_lib.py 从 1.76 原版 npc.wzl / npc2.wzl 转出：
         //   npc.wzl  4840 格 = 69 个商人（外观 0..68），8 位索引色，调色板取 npal.idx 第 0 组
         //   npc2.wzl 1075 格 = 15 个商人（外观 69..83），16 位 ARGB1555
         // 每个商人 70 格 = 3 个朝向 x (4 站立 + 10 动作)。
@@ -289,7 +289,7 @@ public class P2Core : MonoBehaviour
         // ── 摇杆真美术（2026-11-02）──
         // 用户原话：「摇杆现在他妈的纯贴图，和那个王者荣耀的差距百倍」。
         // 原来是 MakePad() 逐像素画的发光空心环 + 渐变球，本质仍是 2D 手绘。
-        // 现在换成**离线 3D 渲染**出来的两张图（C:\ai\tmp\proto14.py 生成）：
+        // 现在换成**离线 3D 渲染**出来的两张图（<本机>/tmp\proto14.py 生成）：
         //   底盘 = 解析高度场 + 数值法线 + 半球环境光 + Blinn-Phong + 菲涅尔，
         //          四向凹槽是真的刻进高度场里，靠法线自动出明暗；
         //   球头 = 真实球面法线的琥珀金属球，双高光 + 边缘菲涅尔。
@@ -304,7 +304,7 @@ public class P2Core : MonoBehaviour
         // ── 按键图标（2026-11-05）──
         // 用户原话：「把你那个操控这些摇杆按钮…参照比较主流的那种游戏，比如说《原神》…
         //            然后上面有图标，或者说是字体…就按照你的设计感，你去弄。」
-        // 白描图标：256x256，RGB 全白、A = 覆盖率，由 C:\ai\tmp\mk_pad_icons.py 用
+        // 白描图标：256x256，RGB 全白、A = 覆盖率，由 <本机>/tmp\mk_pad_icons.py 用
         // 有符号距离场生成（边缘天然抗锯齿），运行时由 P2IconArt 读成遮罩烘进按键贴图。
         "Data/UI/ic_attack.rgba",
         "Data/UI/ic_pick.rgba",
@@ -318,7 +318,7 @@ public class P2Core : MonoBehaviour
 
         // 技能图标：**原版 MagIcon.Lib 的未按下帧**（正版素材，不是自己画的）。
         // 帧号 = ClientMagic.Icon * 2（见 Client/MirScenes/Dialogs/MainDialogs.cs:1837），
-        // 由 C:\ai\tmp\mk_magicon_rgba.py 导出成 32x30 RGBA，单张 3840 字节。
+        // 由 <本机>/tmp\mk_magicon_rgba.py 导出成 32x30 RGBA，单张 3840 字节。
         // 只导了 Lib 里真实存在的偶数帧（1x1 占位帧已跳过）；某个技能取不到帧时
         // P2VirtualPad 会退回白色星星图标，不会留空圆。
         "Data/UI/mag/000.rgba",
@@ -728,7 +728,7 @@ public class P2Core : MonoBehaviour
         //
         // 数据源是 StreamingAssets/Data/Map/maps.pak（186.1 MB 压到 11.2 MB，
         //   .map 是大量重复格子的结构体数组，Deflate 压到 6%）。
-        //   打包脚本见 C:\ai\tmp\run_b\pack_maps.py，格式说明也在那里。
+        //   打包脚本见 <本机>/tmp\run_b\pack_maps.py，格式说明也在那里。
         _status = "解包地图…";
         yield return UnpackMaps();
 
@@ -1281,7 +1281,7 @@ public class P2Core : MonoBehaviour
         if (!Directory.Exists(mapDir)) Directory.CreateDirectory(mapDir);
 
         // ── 解析并解包 ──
-        // 格式见 C:\ai\tmp\run_b\pack_maps.py 头部：
+        // 格式见 <本机>/tmp\run_b\pack_maps.py 头部：
         //   "MIRMAPS1" | int32 count | count × ( u16 nameLen, name, i32 rawLen, i32 zipLen, data )
         int n = 0, written = 0, existed = 0, failed = 0;
         try
@@ -1357,7 +1357,7 @@ public class P2Core : MonoBehaviour
     /// 所以必须先落成真文件——和地图那套一模一样。
     ///
     /// 包内容（788 个文件，原始 638 KB → 压缩后 0.24 MB，打包脚本
-    /// C:\ai\tmp\srvpak\pack_server_data.py，回读自检 788/788 全过）：
+    /// <本机>/tmp\srvpak\pack_server_data.py，回读自检 788/788 全过）：
     ///   Server.MirDB    数据库总入口（地图/物品/怪物/NPC/任务）
     ///   Envir/          NPC 脚本、掉落表、商店 —— 1:1 复刻的内容全在这里
     ///   Configs/        经验表、职业技能、基础属性、刷新倍率、Setup.ini
