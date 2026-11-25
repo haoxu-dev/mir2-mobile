@@ -3,8 +3,8 @@
 //   6 个 EditorPrefs 键 + 3 个 UseEmbedded=false。少写会去找不存在的内嵌 SDK 而构建失败。
 // 命令行(原样):
 //   & 'C:\Program Files\Tuanjie\Hub\Editor\2022.3.62t16\Editor\Tuanjie.exe' -batchmode -nographics `
-//     -projectPath 'C:\Users\haoxu\ai\_scratch\_tjproj_and' -executeMethod P0CBuild.BuildApk `
-//     -logFile 'C:\Users\haoxu\ai\_scratch\_p0c\build.log' -quit
+//     -projectPath '<本机>/_scratch\_tjproj_and' -executeMethod P0CBuild.BuildApk `
+//     -logFile '<本机>/_scratch\_p0c\build.log' -quit
 //
 // ★★ VERDICT 行是本文件最脆的一处，别"美化"：
 //   harness.py L152 的 A2 判定原文 =

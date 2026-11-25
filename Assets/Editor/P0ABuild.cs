@@ -3,8 +3,8 @@
 // 因为 AndroidBuildProbe.BuildApk() 把成功判据硬编码在 letterbox.apk 上，P0-A 不能借用它的成功判据。
 // 命令行（原样）：
 //   & 'C:\Program Files\Tuanjie\Hub\Editor\2022.3.62t16\Editor\Tuanjie.exe' -batchmode -nographics `
-//     -projectPath 'C:\Users\haoxu\ai\_scratch\_tjproj_and' -executeMethod P0ABuild.BuildP0A `
-//     -logFile 'C:\Users\haoxu\ai\_scratch\_t19\build_p0a.log' -quit
+//     -projectPath '<本机>/_scratch\_tjproj_and' -executeMethod P0ABuild.BuildP0A `
+//     -logFile '<本机>/_scratch\_t19\build_p0a.log' -quit
 using System;
 using System.IO;
 using UnityEditor;

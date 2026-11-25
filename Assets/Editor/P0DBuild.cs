@@ -5,8 +5,8 @@
 //
 // ★ 命令行（与契约 verify[1] 逐字一致）：
 //   & 'C:\Program Files\Tuanjie\Hub\Editor\2022.3.62t16\Editor\Tuanjie.exe' -batchmode -nographics `
-//     -projectPath 'C:\Users\haoxu\ai\_scratch\_tjproj_and' -executeMethod P0DBuild.BuildApk `
-//     -logFile 'C:\Users\haoxu\ai\_scratch\_p0c\m2build\build.log' -quit
+//     -projectPath '<本机>/_scratch\_tjproj_and' -executeMethod P0DBuild.BuildApk `
+//     -logFile '<本机>/_scratch\_p0c\m2build\build.log' -quit
 //
 // ★★ VERDICT 行是本文件最脆的一处，别"美化"：
 //   harness.py L152 的 A2 判定原文 =

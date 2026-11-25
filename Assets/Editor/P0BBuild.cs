@@ -2,8 +2,8 @@
 // 外部工具链写法沿用 P0ABuild / AndroidBuildProbe(6 个 EditorPrefs 键 + 3 个 UseEmbedded=false)
 // 命令行(原样):
 //   & 'C:\Program Files\Tuanjie\Hub\Editor\2022.3.62t16\Editor\Tuanjie.exe' -batchmode -nographics `
-//     -projectPath 'C:\Users\haoxu\ai\_scratch\_tjproj_and' -executeMethod P0BBuild.BuildApk `
-//     -logFile 'C:\Users\haoxu\ai\_scratch\_t20\p0b_build.log' -quit
+//     -projectPath '<本机>/_scratch\_tjproj_and' -executeMethod P0BBuild.BuildApk `
+//     -logFile '<本机>/_scratch\_t20\p0b_build.log' -quit
 using System;
 using System.IO;
 using UnityEditor;

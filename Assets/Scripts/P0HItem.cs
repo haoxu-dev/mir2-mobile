@@ -30,9 +30,9 @@
 //   ★★ 为什么从 Prguse[3] 换回 bag_base_352x295（推翻本文件上一版结论，附铁证）：
 //     上一版的理由是「Prguse2 只有 14 帧，索引 180 越界 ⇒ FState.pas 是后期 tmcq 版」。
 //     **那句判断建立在残缺素材包上**：
-//       C:\ai\_dl\netdisk\client2003\Data\Prguse2.wil  458792 字节 /  14 帧  ← 被人裁过
-//       C:\ai\_dl\mir176_p0c_assets\Prguse2.wil       3475317 字节 / 184 帧  ← 完整
-//       C:\ai\_dl\mir176_p0c_assets\Prguse3.wil      12490815 字节 / 618 帧  ← 完整
+//       <本机>/_dl\netdisk\client2003\Data\Prguse2.wil  458792 字节 /  14 帧  ← 被人裁过
+//       <本机>/_dl\mir176_p0c_assets\Prguse2.wil       3475317 字节 / 184 帧  ← 完整
+//       <本机>/_dl\mir176_p0c_assets\Prguse3.wil      12490815 字节 / 618 帧  ← 完整
 //     完整包下 FState.pas 要的 Prguse2 索引 148/180/182/183 **全部命中**，
 //     Prguse3 索引 11/11 **全部命中**；只有 590/744 是更后期才加的。
 //     ⇒ 源码与 2003 素材是配套的，上一版「拼错版本」的结论作废。
@@ -108,8 +108,8 @@ public class P0HItem
     // ★★★ 2026-10-27 三次定案（推翻上一版，附逐像素铁证）：底图 = Prguse2[180] 352x295。
     //
     //    【上一版为什么错】上一版说"Prguse2 只有 14 帧、索引 180 越界 ⇒ 源码是后期 tmcq 版"。
-    //    那句判断建立在**残缺的素材包**上：C:\ai\_dl\netdisk\client2003\Data\Prguse2.wil 只有
-    //    458792 字节 / 14 帧，是被人裁过的。完整版在 C:\ai\_dl\mir176_p0c_assets\Prguse2.wil，
+    //    那句判断建立在**残缺的素材包**上：<本机>/_dl\netdisk\client2003\Data\Prguse2.wil 只有
+    //    458792 字节 / 14 帧，是被人裁过的。完整版在 <本机>/_dl\mir176_p0c_assets\Prguse2.wil，
     //    3475317 字节 / 184 帧 —— 索引 180 稳稳命中，尺寸 352x295。
     //
     //    【格式】mir176_p0c_assets 那套没有 .WIX 索引文件，不能按偏移表读。实测是**顺序存储**：

@@ -662,7 +662,7 @@ public class P0BMapWalk : MonoBehaviour
             //   `BoldText(20, SCREENHEIGHT-17, Format('%s %d:%d', [g_sMapTitle, X, Y]))`）。
             //   本工程只加载 Resources/0.map（地图号 0），MapInfo.txt 第一条正是
             //   `[0	比奇省]	NOMANNOMON		MYSHOP`（GBK，
-            //   C:\ai\_dl\netdisk\gee176\MirServer\Mir200\Envir\MapInfo.txt）
+            //   <本机>/_dl\netdisk\gee176\MirServer\Mir200\Envir\MapInfo.txt）
             //   ⇒ g_sMapTitle = 比奇省。这里**显式注入**而不是吃 P0HRuntime 的默认值，
             //   这样日志与截图都能反查到出处，换图时也会立刻暴露。
             _hRun.MapTitle = "比奇省";

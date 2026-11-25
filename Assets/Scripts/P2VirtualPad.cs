@@ -137,7 +137,7 @@ public static class P2VirtualPad
     // ── 换目标键（2026-11-16 新增）──
     //
     // 用户原话：「我们是不是有切换目标什么这种按键，再弄」。
-    // 官方依据（全文 C:\ai\tmp\mob_ctrl_research.txt 第 25 / 84 行）：
+    // 官方依据（全文 <本机>/tmp\mob_ctrl_research.txt 第 25 / 84 行）：
     //   Mir4 的目标模式在 List（点图标开列表）和 **Tab（在附近敌人间循环切换）**
     //   之间可切换；热血传奇手机版是「附近列表 + 滑屏目标框」。
     //   我们已经有「点怪即锁」这条主路（TryTapSelect），缺的正是**循环切换**这一条
@@ -298,7 +298,7 @@ public static class P2VirtualPad
     static readonly bool[]   _castPassive16 = new bool[16];  // 被动技能：按下去原版直接 return，画淡一点
     // ★ 2026-11-05 新增：技能图标帧号（= ClientMagic.Icon * 2，原版未按下态）。
     //   数据源是 Bridge.SkillSlots() 的第 4 字段（MirCoreBridge.cs:1367 的 key|cn|en|Icon|level），
-    //   帧图由 C:\ai\tmp\mk_magicon_rgba.py 从 Data_HOLD/MagIcon.Lib 离线导出到 Data/UI/mag/。
+    //   帧图由 <本机>/tmp\mk_magicon_rgba.py 从 Data_HOLD/MagIcon.Lib 离线导出到 Data/UI/mag/。
     //   0 表示没拿到（老版本服务端不带这个字段）⇒ 退回白色星星图标。
     static readonly int[]    _castIcon16 = new int[16];
     static readonly float[]  _castFlashT = new float[CastMax];
@@ -2379,7 +2379,7 @@ public static class P2VirtualPad
     //  换目标键（2026-11-16 新增）
     // ────────────────────────────────────────────────────────────
     //
-    // 语义（和 Mir4 的 Tab 模式一致，见 C:\ai\tmp\mob_ctrl_research.txt 第 25 行）：
+    // 语义（和 Mir4 的 Tab 模式一致，见 <本机>/tmp\mob_ctrl_research.txt 第 25 行）：
     //   · 附近一只都没锁 → 锁最近的一只
     //   · 已锁着        → 按「由近到远」的顺序换到**下一只**，到底了回到第一只
     //   · 附近没活怪    → 清掉锁定 + 提示
@@ -2829,7 +2829,7 @@ public static class P2VirtualPad
         // 用户原话：「你那个摇杆，现在他妈的纯贴图，和那个王者荣耀的差距百倍」。
         // 之前的 DrawPad 是逐像素手画的径向渐变 + 一圈高光弧 —— 没有法线、没有环境光、
         // 没有接触阴影，本质上仍是 2D 涂鸦，所以一定「像贴图」。
-        // 现在整块换成 C:\ai\tmp\proto14.py 离线渲染出来的两张图（P2StickArt.cs 负责合成）：
+        // 现在整块换成 <本机>/tmp\proto14.py 离线渲染出来的两张图（P2StickArt.cs 负责合成）：
         //   底盘 = 解析高度场（含真的刻进去的四向凹槽）→ 数值法线 → 半球环境光 + Blinn-Phong + 菲涅尔；
         //   球头 = 真球面法线的琥珀金属球，双高光 + 边缘菲涅尔；
         //   接触阴影按解析函数在运行时算，光在左上 ⇒ 影落右下，球才「坐」在盘上而不是浮着。
@@ -3181,7 +3181,7 @@ public static class P2VirtualPad
     //   而游戏区 72.7% 像素是暖金，中位 (206,177,132)、暖度 B-R = −74，
     //   一片冷灰圆贴在暖褐石纹上 ⇒ 两套色系打架，这才是"丑"。
     //
-    //   新模型（和 C:\ai\tmp\pad_mock.py 的 make_pad 逐行对应）：
+    //   新模型（和 <本机>/tmp\pad_mock.py 的 make_pad 逐行对应）：
     //     rgb = (v*255) * lerp(Dark, Light, v)        ← 颜色按 v 在深褐→金之间插值
     //     fill *= LevelBoost，ring *= RingBoost       ← 整体提亮，摆脱"暗灰圆"
     //   四版配色贴回真实截图并排评审（pad_mock.png，see-image 裁决）：
@@ -3268,7 +3268,7 @@ public static class P2VirtualPad
     /// 生成一个按键贴图。**alpha 预乘进 RGB、A 恒 255**（原因见 _padCache 那段注释）。
     /// 圆外一律填 bg，所以整块方贴图直接不透明贴上去即可，不会有黑角。
     ///
-    /// 公式与 C:\ai\tmp\padmock.py 的 make_pad() **逐行对应** —— 视觉是先在 Python 里
+    /// 公式与 <本机>/tmp\padmock.py 的 make_pad() **逐行对应** —— 视觉是先在 Python 里
     /// 出图、用 see-image 评审过才搬过来的，改这里请同步改那边，否则两边会漂。
     /// </summary>
     static Texture2D MakePad(int n, float fill, float ring, float inner, float bg, int kind,
@@ -3343,7 +3343,7 @@ public static class P2VirtualPad
 
         // ⑤ 图标：白色 SDF 遮罩（3x3 超采样）或原版 MagIcon 帧（bicubic + 裁圆）
         //
-        //   ★ 2026-11-05 出招键改法（离线评审定案，见 C:\ai\tmp\castmock.py）：
+        //   ★ 2026-11-05 出招键改法（离线评审定案，见 <本机>/tmp\castmock.py）：
         //     技能帧是整块不透明的小方块，所以这里走「暗盘 + 原画盖满圆 + 亮环压边」，
         //     和下面功能键的白描图标是两条路，不要合并。
         float gs = glyphScale > 0.01f ? glyphScale : 0.62f;
@@ -3388,7 +3388,7 @@ public static class P2VirtualPad
                 //   实机截图上出招键有个 96x96 的完整正方形，四角 RGB=(88,95,103)
                 //   完全一致（纯黑底上本该是 0）。前面 ①~④ 段都乘了 disc，唯独这段漏了。
                 //   修法：再乘一道 clip(r+0.5-d) 把亮环收进圆内，圆外保持 bg。
-                //   离线复现/对照见 C:\ai\tmp\castfix.py。
+                //   离线复现/对照见 <本机>/tmp\castfix.py。
                 for (int y = 0; y < n; y++)
                     for (int x = 0; x < n; x++)
                     {

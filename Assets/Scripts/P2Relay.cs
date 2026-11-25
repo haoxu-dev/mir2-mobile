@@ -10,10 +10,10 @@
 //   · 本机防火墙已排除：三档 profile 的 DefaultInboundAction 都是 Allow。
 //
 // 所以走「双方都主动出站」的公共 MQTT：谁都不要开端口，谁都不需要固定 IP。
-// 实测性能（C:\ai\tmp\mqtt_final.py 与 relay_proto_test.py）：
+// 实测性能（<本机>/tmp\mqtt_final.py 与 relay_proto_test.py）：
 //   test.mosquitto.org  800KB 连发 丢 0.0%  29 KB/s  单向延迟中位 213ms
 //   broker.emqx.io      800KB 连发 丢 87.5%（匿名限流），只当备份
-// 协议层实跑（C:\ai\tmp\relay_proto_test.py）：
+// 协议层实跑（<本机>/tmp\relay_proto_test.py）：
 //   [1] 服务端问候 Index=0   首包耗时 463ms
 //   [2] ClientVersion 应答   往返 1105ms
 //   [3] Login 应答           往返 444ms

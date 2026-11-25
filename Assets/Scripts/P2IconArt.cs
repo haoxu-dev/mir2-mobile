@@ -6,12 +6,12 @@
 //   P2VirtualPad.MakePad 已经把「底 + 高光 + 棱」烘成一张图了，图标同理。
 //
 // 素材来源（两份，都在 StreamingAssets/Data/UI/，进 P2Core.NEEDED）：
-//   ic_<name>.rgba  256x256 RGBA，RGB 全白、A = 覆盖率。由 C:\ai\tmp\mk_pad_icons.py
+//   ic_<name>.rgba  256x256 RGBA，RGB 全白、A = 覆盖率。由 <本机>/tmp\mk_pad_icons.py
 //                   用有符号距离场画出来（剑/宝箱/药瓶/气泡/背包/铠甲/星星/叉/箭头），
 //                   边缘天然抗锯齿，缩到 r=48 的技能键上也不会有锯齿。
 //   mag\<帧号>.rgba  原版 MagIcon.Lib 的**偶数帧**（= 未按下态，Index = Icon*2，
 //                   见 Client/MirScenes/Dialogs/MainDialogs.cs:1837）。
-//                   由 C:\ai\tmp\mk_magicon_rgba.py 从 Data_HOLD/MagIcon.Lib 导出。
+//                   由 <本机>/tmp\mk_magicon_rgba.py 从 Data_HOLD/MagIcon.Lib 导出。
 //                   ★ 这是正版素材，不是自己画的 —— 用户要求「照着正版弄」。
 //
 // ★ 采样方式：白色图标用**双线性**（SDF 生成，天然平滑）；
@@ -201,7 +201,7 @@ public static class P2IconArt
     ///
     /// ★ 采样用 **bicubic（Catmull-Rom）**：32x30 放大到 128 是 4.3 倍。离线把
     ///   最近邻/双线性/bicubic 三版并排给评审看过，结论 bicubic &gt; 双线性 &gt; 最近邻，
-    ///   最近邻的马赛克方块在这尺寸下很明显。参数公式在 C:\ai\tmp\castmock.py。
+    ///   最近邻的马赛克方块在这尺寸下很明显。参数公式在 <本机>/tmp\castmock.py。
     /// </summary>
     public static void BlendMag(Color32[] px, int n, Color32[] mag, float scale, float strength)
     {
