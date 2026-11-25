@@ -1,0 +1,38 @@
+# ---- 统一换行符，避免 Windows / macOS / Linux 协作时整文件 diff ----
+* text=auto eol=lf
+
+# ---- Unity 专用：这些是二进制，不许当文本处理 ----
+*.unity      text
+*.prefab     text
+*.asset      text
+*.mat        text
+*.meta       text
+*.asmdef     text
+*.json       text
+*.xml        text
+*.md         text
+
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.psd        binary
+*.ttf        binary
+*.otf        binary
+*.wav        binary
+*.mp3        binary
+*.ogg        binary
+*.pak        binary
+*.Lib        binary
+*.WIL        binary
+*.dll        binary
+*.so         binary
+*.apk        binary
+*.aar        binary
+*.zip        binary
+
+# ---- Unity YAML 合并 ----
+*.unity      merge=unityyamlmerge eol=lf
+*.prefab     merge=unityyamlmerge eol=lf
+*.asset      merge=unityyamlmerge eol=lf
+*.mat        merge=unityyamlmerge eol=lf
