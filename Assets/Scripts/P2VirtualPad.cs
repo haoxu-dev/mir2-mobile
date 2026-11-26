@@ -386,20 +386,23 @@ public static class P2VirtualPad
     static float _nextFlashT;       // 换目标键按下闪光
     static int _nextFinger = -2;    // 这一指已经处理过这个键
 
-    // 常态透明度取用户口径 0.28~0.45 的**上限**：这条链把 alpha 预乘进 RGB，
-    // 黑底上一律按 0..255 直读，0.34 实测只有 73/255（描边）与 22/255（填充），
-    // 屏幕上几乎看不出是个按键。0.45 才勉强等于「半透明白键」的观感。
+    // 三档浓淡（设置面板里的「淡 / 标准 / 明显」）。
+    //   2026-11-26 改成 straight alpha 之后，这三个数不再是「亮度」而是**不透明度**的源头：
+    //   MakePad 里 bodyA = alpha × FillRatio × 0.86，于是三档实际落到
+    //     淡 0.21 / 标准 0.28 / 明显 0.37
+    //   0.28 是在真实截图上四版并排给 see-image 评审选出来的（padfinal.png）：
+    //   既有通透感、边缘又清楚不糊，判语是「最像现代手游、不像贴纸」。
+    //   ★ 别再把它们当亮度看 —— 旧注释说「0.45 才勉强等于半透明白键」是预乘时代的换算，
+    //     现在 0.45 就是 0.45 的不透明度，盘面会明显偏实。
     static float IdleAlpha { get { return IdleAlphaTable[_alphaStep]; } }  // 常态透明度（可调）
     const float PressAlpha = 0.70f; // 按下时
     const float KnobAlpha = 0.62f;
 
-    // ★ 2026-10-29 第三处定案（填充与描边的**亮度配比**，别再靠 IdleAlpha 单旋钮）：
-    //   设备实测（shot_now.png，IdleAlpha=0.45 / fill 系数 0.34）：
-    //     攻击键圆心 [38 40 44]、描边 r=84 [75 81 89]、摇杆圆心 [63 68 74]。
-    //   换算成 0..1 是 0.15 与 0.30 —— 描边够亮，**填充只有一半**，
-    //   屏幕上就是「一圈细线 + 一片几乎全黑的圆」，看着像没画。
-    //   填充系数抬到 0.72（≈0.32 → 显示约 82/255）、摇杆头抬到 0.80，
-    //   两级亮度差仍有 ~35，层次清、整体落在用户口径的半透明区间内。
+    // ★ 2026-10-29 第三处定案（填充与描边的**亮度配比**）—— 结论仍然有效，理由变了：
+    //   当年是为了把「一圈细线 + 一片几乎全黑的圆」救回来（fill 0.34 → 0.72）。
+    //   现在 fill 是 alpha 不是亮度，0.72 的含义是「盘身比外环淡」——
+    //   半透明模型下这依然成立且必须成立：外环要能压住盘面才看得见边界。
+    //   把它改成 1.0 会让盘面和环一样实，圆就糊成一坨（padfinal.py 里试过）。
     // 摇杆的「视觉」尺寸（与上面的热区/行程是两套东西，2026-11-01 拆开）
     //   热区 HotRadius=235 是手指落点判定，做大一点更好按；
     //   视觉环 190 才是画出来的大小。两者不相等是手游的标准做法。
@@ -1231,27 +1234,31 @@ public static class P2VirtualPad
     // ── 当前画面对应的视口（letterbox 后的 4:3 区域，GUI 坐标）──
     static Rect _viewport;
 
-    // ★ 2026-10-29 定案（两次实测，别再改回去）：
-    //   这个 Tuanjie 构建的 IMGUI 只认 RGB 相乘，**A 通道整条链都被丢掉**。
-    //   证据一：GUI.color.a=0.34 + 白纹理 → 摇杆圆心取到 (217,235,255)，
-    //           正好是 GUI.color(0.85,0.92,1) × 255，一点没混，整条黑边被刷成
-    //           一大片淡紫蓝，就是用户说的「花、乱」。
-    //   证据二：把 alpha 烘进纹理 A 通道后重打包上机 → 圆心仍是 (216,234,254)，
-    //           分毫未变（DLL 里已确认新代码在里面）。
-    //   ⇒ 于是改成**预乘**：贴图 RGB 直接存「叠在黑边上的最终颜色」= 基色 × alpha，
-    //     A 恒 255，GUI.color 用白色。左右黑边实测是纯黑 (0,0,0)，所以
-    //     「不透明地画 RGB×alpha」与「半透明地画基色」数学上完全等价；
-    //     将来若某台设备没有黑边，观感也只是一层压暗的深色圆，不会翻车。
+    // ★ 2026-11-26 订正（这条推翻了 2026-10-29 的两次「定案」，以下是实测后的真因）：
     //
-    // ★ 2026-10-29 第二处定案（这条是「按键整块看不见」的真凶，别再拆开画）：
-    //   A 通道既然被丢掉，每次 GUI.DrawTexture 都是**不透明地刷一整块矩形**，
-    //   贴图里 A=0 的地方不是透明、是黑色。
-    //   旧代码把「底填充圆」和「外描边环」拆成两次 DrawTexture，且填充先画、环后画：
-    //   环那张 470x470 的贴图圆外全是黑 ⇒ 它把刚画好的填充圆整块刷黑，
-    //   于是画面上只剩一条细环、圆心 (0,0,0)。设备实测就是这个：
-    //     摇杆圆心 px=(0,0,0)  而环上 px=(120,130,142)  攻击键区偏蓝像素 0/32400
-    //   ⇒ 一个按键只能有**一次** DrawTexture。填充、描边、内环全部烘进同一张贴图，
-    //     圆外像素写纯黑（= 黑边颜色），这样「黑色方角」落在黑边上等于不存在。
+    //   旧结论说「Tuanjie 的 IMGUI 把 A 通道整条链丢掉」。**这是误诊。**
+    //   反证在同目录 P2StickArt.cs:95-100：摇杆底盘从 2026-11-11 起就是
+    //     ApplyDiscAlpha(...) 把盘外 A 写成 0 + DrawTexture(..., alphaBlend:true)，
+    //   实机可见底盘外透出草地 —— A 通道一直是生效的。
+    //
+    //   那么 2026-10-29 那两次实测看到的是什么？
+    //     证据一说「GUI.color.a=0.34 无效」—— 对，但原因是**当时贴图的 A 是 255**，
+    //       GUI.color 的 alpha 在 IMGUI 里对 DrawTexture 只做 RGB 乘算（tint），
+    //       它本来就**不是**一个"整体不透明度"旋钮。不是 A 被丢。
+    //     证据二说「把 alpha 写进纹理 A 也不变」—— 因为那次纹理是预乘的，
+    //       且盘内 A 仍是 255，A=0 只出现在圆外那块方角上，看起来当然"没变化"。
+    //
+    //   ⇒ 真正的问题从头到尾只有一个：**MakePad 自己把 alpha 预乘进 RGB、把 A 钉死 255**，
+    //     于是每个按键是一张不透明圆贴纸。用户 2026-11-26 原话「各种虚拟按键还不是透明的，
+    //     太丑了」就是这个。现在 MakePad 改成 straight alpha（RGB 本色 + A 覆盖率），
+    //     盘面半透明、背景真的透出来。
+    //
+    // ★ 2026-10-29 第二处定案仍然有效（这条是真 bug，别再拆开画）：
+    //   一个按键只能有**一次** DrawTexture。填充、描边、内环全部烘进同一张贴图 ——
+    //   不是因为"A 被丢、圆外是黑的"，而是因为**分两张画会在接缝处互相削边**：
+    //   环那张贴图圆内的填充是半透明的，叠在填充圆上会把圆心又压暗一遍，
+    //   于是"圆心比环暗"的假象就出现了（旧实测圆心 (0,0,0) / 环 (120,130,142)
+    //   正是两层半透明叠加的结果，不是刷黑）。
     static readonly System.Collections.Generic.Dictionary<string, Texture2D> _padCache
         = new System.Collections.Generic.Dictionary<string, Texture2D>();
     static GUIStyle _style;
@@ -3388,12 +3395,13 @@ public static class P2VirtualPad
     // 上一版是「立体玻璃」（径向渐变 + 高光弧 + 内外棱），离线评审的原话是
     // 「非常典型的早期拟物化 UI（加重的高光、厚重的斜面倒角、强烈的立体阴影）」。
     // 这一版换成原神/王者那一套**扁平**语言，全部烘进一张贴图
-    // （IMGUI 每键只能一次 DrawTexture，A 通道整条会被丢掉，见 _padCache 的注释）：
+    // （每键只能一次 DrawTexture —— 理由不是"A 通道会被丢掉"（那是旧误诊，见
+    //  _padCache 处的订正），而是分两张画会在接缝处互相削边）：
     //
-    //   ① 底：极淡的冷白填充 + 一层**极弱**的竖向渐变（上亮下暗，模拟环境光）
-    //      —— 不再做球面高光，扁平风靠「边界清晰」而不是靠高光
-    //   ② 边：1 圈细白光环（约 3% 半径）
-    //   ③ 环内侧压 1px 暗线 —— 让圆「有厚度但不像拟物」，这是扁平风的常见做法
+    //   ① 底：深暖黑本色 + 一层**极弱**的竖向渐变（上亮下暗）—— A 走真半透明，
+    //      背景透得进来。扁平风靠「边界清晰」而不是靠高光
+    //   ② 边：1 圈暖白细环（约 5% 半径）—— 半透明盘面全靠它收边
+    //   ③ 环内侧压 1px 暗缝 —— 让圆「有厚度但不像拟物」，这是扁平风的常见做法
     //   ④ 图标：纯白实心，只带一层很淡的下沉暗影提升可读性
     //
     // 三种形态：
@@ -3405,35 +3413,29 @@ public static class P2VirtualPad
 
     const int KindRing = 0, KindKnob = 1, KindButton = 2;
 
-    // 按键配色 —— 两段暖色（暗部深褐 → 亮部金色），和 1.76 的石纹同一族
+    // 按键本色 —— **straight alpha**（2026-11-26 第三次定案）
     //
-    // ★ 2026-11-11 实机取证后的重做（这是「太丑」的真正根因）：
-    //   旧模型是 rgb = (v*255) * lerp(Base*0.86, Base, v)，而 v 在常态只有 ~0.32，
-    //   于是三个通道最多差 8%（0.86→1.00 又被 0.32 的 v 压缩），
-    //   设备实测按键是 (75,75,74) —— **纯中性灰，暖白基色等于没生效**。
-    //   而游戏区 72.7% 像素是暖金，中位 (206,177,132)、暖度 B-R = −74，
-    //   一片冷灰圆贴在暖褐石纹上 ⇒ 两套色系打架，这才是"丑"。
+    //   盘身 = 深暖黑：半透明状态下它负责「压暗背景」。必须是深色 ——
+    //     浅色盘身即使只给 30% 不透明度，叠在明亮草地上也会糊成一片白雾。
+    //   外环 = 暖白：明亮细边，让圆盘在任何底色上都找得到边界。
+    //     离线在真实截图上四版并排评审（padfinal.png，see-image 裁决）：
+    //     「半透明深盘 + 清晰暖白细边」胜出，评语是「不像贴纸、最像原神/王者」。
     //
-    //   新模型（和 <本机>/tmp\pad_mock.py 的 make_pad 逐行对应）：
-    //     rgb = (v*255) * lerp(Dark, Light, v)        ← 颜色按 v 在深褐→金之间插值
-    //     fill *= LevelBoost，ring *= RingBoost       ← 整体提亮，摆脱"暗灰圆"
-    //   四版配色贴回真实截图并排评审（pad_mock.png，see-image 裁决）：
-    //     A 现状最不协调（冷灰撞暖木）、B 最协调、C 最好看（暖褐耐看、粗描边有层次）
-    //   ⇒ 采用 C：设备实测落到屏上均色 (109,100,81)、暖度 −28、中位亮度 292
-    //     （现状 223，游戏基准 515），比原来亮 31% 且第一次真正带上暖褐。
-    const float DarkR = 0.72f, DarkG = 0.62f, DarkB = 0.44f;
-    const float LitR = 1.00f, LitG = 0.96f, LitB = 0.84f;
-    const float LevelBoost = 1.55f;   // 盘面/填充 亮度放大
-    const float RingBoost = 1.35f;    // 外环 亮度放大
+    // ★ 这和 2026-11-11 那版「两段暖色」不是一回事。那版把颜色和亮度乘在一起
+    //   （rgb = v × lerp(Dark,Light,v)），v 常态只有 0.32，三个通道被压到最多差 8%，
+    //   设备实测落到屏上是纯中性灰 (75,75,74)。现在颜色是**本色**，明暗由 alpha
+    //   和光照明暗各自管，互不干扰。
+    const float DarkR = 0.205f, DarkG = 0.165f, DarkB = 0.130f;   // 盘身：深暖黑
+    const float LitR  = 1.000f, LitG  = 0.945f, LitB  = 0.855f;   // 外环：暖白
 
-    /// <summary>颜色插值：v=0 → 深褐，v=1 → 金白。和 pad_mock.py 同一公式。</summary>
-    static void Tint(float v, out float cr, out float cg, out float cb)
-    {
-        float t = Mathf.Clamp01(v);
-        cr = DarkR + (LitR - DarkR) * t;
-        cg = DarkG + (LitG - DarkG) * t;
-        cb = DarkB + (LitB - DarkB) * t;
-    }
+    // 旧口径 → 新口径换算。
+    //   调用点传进来的 fill / ring 一直是「亮度」（常态 alpha × FillRatio × 亮度放大），
+    //   新模型里它们要变成**不透明度**，逐处改调用点风险太大，所以在这里统一换算：
+    //     IdleAlpha 0.45 × FillRatio 0.72 = 0.324  → bodyA 0.279（评审选中的「标准」档）
+    //     IdleAlpha 0.45 × 0.95           = 0.4275 → ringA 0.80
+    //   三档浓淡随之线性落在 0.21 / 0.28 / 0.37，无需另设表。
+    const float BodyAlphaK = 0.86f;
+    const float RingAlphaK = 1.87f;
 
     /// <summary>没有图标的按键（NPC 选项/关闭键等由调用方直接传图标名，这里给降级口）。</summary>
     static void DrawPad(Vector2 center, float radius, float fill, float ring,
@@ -3464,8 +3466,10 @@ public static class P2VirtualPad
     ///   fallbackLabel 那行文字。可攻击键有图标（ic_attack 存在），DrawFunc 一旦
     ///   走图标分支就**不画文字** ⇒ 金/红两态在屏幕上完全没有体现，三态退化成
     ///   「0.45 和 0.52 两种透明度」——实机截图像素差异 <3%，肉眼分不出。
-    ///   贴图是预乘 alpha 且 A 恒 255 的实心方图，所以直接乘 RGB 就能染色，
+    ///   贴图颜色是本色（straight alpha），GUI.color 对 RGB 做乘算就能染色，
     ///   不必重做贴图，也不进 _padCache（着色是每帧只作用于攻击键一次）。
+    /// ★ 2026-11-26：tint 只动 RGB、不动 A，所以染色后**透明度不变** ——
+    ///   攻击键金/红两态只换颜色，不会顺带变成不透明或变透明。
     /// </summary>
     static void DrawPadIcon(Vector2 center, float radius, float fill, float ring,
                             float inner, float bg, int kind,
@@ -3504,11 +3508,19 @@ public static class P2VirtualPad
     }
 
     /// <summary>
-    /// 生成一个按键贴图。**alpha 预乘进 RGB、A 恒 255**（原因见 _padCache 那段注释）。
-    /// 圆外一律填 bg，所以整块方贴图直接不透明贴上去即可，不会有黑角。
+    /// 生成一个按键贴图。**straight alpha：RGB 存本色、A 存覆盖率**（2026-11-26 重做）。
+    /// 圆内 A = bodyA / ringA，圆外 A = 0，贴图按 AlphaBlend 画 ⇒ 背景真的能透出来。
     ///
-    /// 公式与 <本机>/tmp\padmock.py 的 make_pad() **逐行对应** —— 视觉是先在 Python 里
-    /// 出图、用 see-image 评审过才搬过来的，改这里请同步改那边，否则两边会漂。
+    /// ★ 为什么这次能成（前面两次都是误诊，见 _padCache 那段注释的订正）：
+    ///   Tuanjie 的 IMGUI **没有**丢 A 通道 —— P2StickArt 的摇杆底盘从 2026-11-11 起
+    ///   就是「ApplyDiscAlpha 写 A=0 + DrawTexture(alphaBlend:true)」透出地图的，实机成立。
+    ///   真正的问题一直是 MakePad 自己把 alpha 预乘进 RGB、把 A 钉死 255，
+    ///   于是每个按键都成了一张不透明圆贴纸。
+    ///
+    /// 公式与 <本机>/tmp\padfinal.py 的 render() **逐行对应** —— 视觉是先在 Python 里
+    /// 出图、在真实截图上四版并排给 see-image 评审过才搬过来的，改这里请同步改那边。
+    ///
+    /// bg 参数已失去意义（旧模型用它给圆外填不透明底色），保留形参只为不动 5 处调用点。
     /// </summary>
     static Texture2D MakePad(int n, float fill, float ring, float inner, float bg, int kind,
                              string iconName, int magFrame, float glyphScale)
@@ -3519,14 +3531,14 @@ public static class P2VirtualPad
         var px = new Color32[n * n];
         float r = n * 0.5f;
 
-        // 提亮：常态 v 只有 ~0.32，不提亮就是一片暗灰圆（设备实测 (75,75,74)）。
-        fill *= LevelBoost;
-        ring *= RingBoost;
+        // 旧口径（亮度）→ 新口径（不透明度）。换算比例见 BodyAlphaK / RingAlphaK 的注释。
+        float bodyA = Mathf.Clamp01(fill * BodyAlphaK);
+        float ringA = Mathf.Clamp01(ring * RingAlphaK);
 
-        // 细外环 / 环内 1px 暗线（扁平风的关键：边界清楚，不要拟物高光）
-        // 环粗 6.2% 半径是四版并排评审选出的 C 方案 —— 细环（3%）在暖褐盘面上留不住边。
-        float rimW = Mathf.Max(2f, r * 0.062f);
-        float inW = Mathf.Max(1.2f, r * 0.016f);
+        // 细外环 / 环内细缝（扁平风的关键：边界清楚，不要拟物高光）
+        float rimW = Mathf.Max(2f, r * 0.052f);
+        float inW = Mathf.Max(1.2f, r * 0.014f);
+        float haloR = r * 0.055f;
 
         for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++)
@@ -3534,70 +3546,98 @@ public static class P2VirtualPad
                 float dx = x + 0.5f - r, dy = y + 0.5f - r;
                 float d = Mathf.Sqrt(dx * dx + dy * dy);
 
+                // ① 盘身：深暖黑本色 + 极弱的竖向光照（上略亮）。
+                //    注意只调**颜色**、不调 alpha —— 半透明下 alpha 上深下浅会像脏了。
+                float lit = Mathf.Clamp01(0.5f - dy / (r * 2.2f));
+                float grad = 0.92f + 0.16f * lit;
+                float bcR = DarkR * grad, bcG = DarkG * grad, bcB = DarkB * grad;
+
                 // 圆盘遮罩：1 在盘内，到外沿 1px 线性降到 0（抗锯齿）
                 float disc = Mathf.Clamp01(r - d);
+                float aBody = bodyA * disc;
 
-                // ① 底：极弱的竖向渐变（上亮下暗），不做球面高光
-                float lit = Mathf.Clamp01(0.5f - dy / (r * 2.2f));
-                float grad = 0.90f + 0.20f * lit;
-                float v = fill * grad * disc;
+                // ② 外环：暖白细边 —— 半透明盘面全靠它收边
+                float rimK = Mathf.Clamp01((d - (r - rimW)) / rimW) * disc;
+                float aRing = ringA * rimK;
+                float rcR = LitR, rcG = LitG, rcB = LitB;
 
-                // ② 细外环
-                float rim = Mathf.Clamp01((d - (r - rimW)) / rimW) * disc;
-                v = Mathf.Max(v, ring * rim);
-
-                // ③ 环内侧 1px 暗线（不是浮雕，只是让环不糊）
+                // ③ 环内侧细缝：把「盘面」和「环」分开，硬边就没有了
                 float inDark = Mathf.Clamp01(1f - Mathf.Abs(d - (r - rimW - inW)) / inW) * disc;
-                v *= (1f - 0.35f * inDark);
-
-                // ④ 锁定内环（原 inner 语义保留：锁定目标时亮一圈）
-                if (inner > 0f && kind != KindRing)
+                if (inDark > 0f)
                 {
-                    float inR = r * 0.62f;
-                    float av = Mathf.Clamp01(1f - Mathf.Abs(d - inR) / (r * 0.075f)) * disc;
-                    v = Mathf.Max(v, inner * av);
+                    aBody *= (1f - 0.70f * inDark);
+                    aRing *= (1f - 0.55f * inDark);
                 }
 
                 if (kind == KindRing)
                 {
-                    // 空心环：只留环带
+                    // 空心环（摇杆降级态）：只留一圈带 + 极淡的一层玻璃
                     float ringW = r * 0.030f;
                     float ringR = r - rimW;
-                    v = ring * Mathf.Clamp01(1f - Mathf.Abs(d - ringR) / (ringW * 0.5f));
-                    // 环内的极淡填充，让摇杆区域一眼看得出来
-                    v = Mathf.Max(v, 0.045f * disc);
+                    aBody = 0.08f * disc;
+                    aRing = ringA * Mathf.Clamp01(1f - Mathf.Abs(d - ringR) / (ringW * 0.5f)) * disc;
+                }
+                else if (inner > 0f)
+                {
+                    // ④ 锁定内环（原 inner 语义保留：锁定目标时亮一圈）
+                    float inR = r * 0.62f;
+                    float av = Mathf.Clamp01(1f - Mathf.Abs(d - inR) / (r * 0.075f)) * disc;
+                    aRing = Mathf.Max(aRing, Mathf.Clamp01(inner) * av);
                 }
 
-                // 圆外用 bg 盖住方角（黑边是纯黑 ⇒ bg=0 时方角等于不存在）
-                v = Mathf.Max(v, bg);
+                // 「环 over 身」的 straight-alpha 合成 —— 和 padfinal.py 的 render() 同一式
+                float ao = aBody + aRing * (1f - aBody);
+                float oR = 0f, oG = 0f, oB = 0f;
+                if (ao > 0.002f)
+                {
+                    float inv = 1f / ao;
+                    oR = (bcR * 255f * aBody + rcR * 255f * aRing * (1f - aBody)) * inv;
+                    oG = (bcG * 255f * aBody + rcG * 255f * aRing * (1f - aBody)) * inv;
+                    oB = (bcB * 255f * aBody + rcB * 255f * aRing * (1f - aBody)) * inv;
+                }
 
-                float vc = Mathf.Clamp01(v);
-                byte bv = (byte)(vc * 255f);
-                // 两段暖色：暗部深褐、亮部金白（旧版这里是 ±14% 的冷暖微调，
-                // 被 v≈0.32 压扁成中性灰，等于没有颜色 —— 见 DarkR 那段注释）
-                float tr, tg, tb;
-                Tint(vc, out tr, out tg, out tb);
-                px[y * n + x] = new Color32((byte)(bv * tr), (byte)(bv * tg), (byte)(bv * tb), 255);
+                // ⑤ 圆外：先 5.5% 半径的柔光，再往外彻底透明。
+                //    柔光也走 alpha（旧版是往 RGB 里加常数提亮），这样底下再亮
+                //    也不会在圆边糊出一圈白边。
+                if (d > r)
+                {
+                    if (d < r + haloR)
+                    {
+                        float g = 1f - (d - r) / haloR;
+                        ao = g * g * 0.10f;
+                        oR = oG = oB = 255f;
+                    }
+                    else
+                    {
+                        ao = 0f;
+                    }
+                }
+
+                px[y * n + x] = ao <= 0f
+                    ? new Color32(0, 0, 0, 0)
+                    : new Color32(ClampB(oR), ClampB(oG), ClampB(oB), ClampB(ao * 255f));
             }
 
-        // ⑤ 图标：白色 SDF 遮罩（3x3 超采样）或原版 MagIcon 帧（bicubic + 裁圆）
+        // ⑥ 图标：白色 SDF 遮罩（3x3 超采样）或原版 MagIcon 帧（bicubic + 裁圆）。
+        //    两个 Blend 都已改成 straight alpha 的 over 合成（见 P2IconArt），
+        //    图标本身变成不透明白、盘面保持半透明。
         //
         //   ★ 2026-11-05 出招键改法（离线评审定案，见 <本机>/tmp\castmock.py）：
         //     技能帧是整块不透明的小方块，所以这里走「暗盘 + 原画盖满圆 + 亮环压边」，
         //     和下面功能键的白描图标是两条路，不要合并。
+        //     （现状：出招键已改用文字标签，magFrame 恒传 -1，这条分支是留给旧素材的。）
         float gs = glyphScale > 0.01f ? glyphScale : 0.62f;
         if (magFrame >= 0)
         {
             var mag = P2IconArt.Mag(magFrame);
             if (mag != null)
             {
-                // 原画是彩色的，浅底会把它冲淡 ⇒ 先把盘面压暗
-                float dark = 0.22f;
+                // 原画是彩色的，浅底会把它冲淡 ⇒ 先把盘面压暗（只压颜色，alpha 不动）
                 for (int i = 0; i < px.Length; i++)
                 {
                     Color32 c0 = px[i];
-                    px[i] = new Color32((byte)(c0.r * dark), (byte)(c0.g * dark),
-                                        (byte)(c0.b * dark), 255);
+                    px[i] = new Color32((byte)(c0.r * 0.22f), (byte)(c0.g * 0.22f),
+                                        (byte)(c0.b * 0.22f), c0.a);
                 }
 
                 // 记下压暗后的盘面，画完原画再按圆遮罩合回去 ——
@@ -3616,7 +3656,8 @@ public static class P2VirtualPad
                         px[i] = new Color32(
                             (byte)(u.r + (c.r - u.r) * m),
                             (byte)(u.g + (c.g - u.g) * m),
-                            (byte)(u.b + (c.b - u.b) * m), 255);
+                            (byte)(u.b + (c.b - u.b) * m),
+                            (byte)(u.a + (c.a - u.a) * m));
                     }
 
                 // 最上层压一道细亮环：原画铺满后边缘会糊，靠环把圆「收」住。
@@ -3626,7 +3667,7 @@ public static class P2VirtualPad
                 //   rv = ring 恒为正，于是圆外那一整块方角全被抬到 ring 亮度 ——
                 //   实机截图上出招键有个 96x96 的完整正方形，四角 RGB=(88,95,103)
                 //   完全一致（纯黑底上本该是 0）。前面 ①~④ 段都乘了 disc，唯独这段漏了。
-                //   修法：再乘一道 clip(r+0.5-d) 把亮环收进圆内，圆外保持 bg。
+                //   修法：再乘一道 clip(r+0.5-d) 把亮环收进圆内，圆外保持透明。
                 //   离线复现/对照见 <本机>/tmp\castfix.py。
                 for (int y = 0; y < n; y++)
                     for (int x = 0; x < n; x++)
@@ -3636,17 +3677,8 @@ public static class P2VirtualPad
                         float rim = Mathf.Clamp01((d - (r - rimW)) / rimW)
                                   * Mathf.Clamp01(r + 0.5f - d);
                         if (rim <= 0f) continue;
-                        float rv = ring * rim;
                         int i = y * n + x;
-                        Color32 c0 = px[i];
-                        // 亮环的颜色按环自身的亮度取暖色（ring 已乘过 RingBoost）
-                        float ringV = Mathf.Clamp01(ring);
-                        float rr, rg, rb;
-                        Tint(ringV, out rr, out rg, out rb);
-                        px[i] = new Color32(
-                            (byte)Mathf.Max(c0.r, rv * rr * 255f),
-                            (byte)Mathf.Max(c0.g, rv * rg * 255f),
-                            (byte)Mathf.Max(c0.b, rv * rb * 255f), 255);
+                        Over(ref px[i], LitR * 255f, LitG * 255f, LitB * 255f, ringA * rim);
                     }
             }
             else
@@ -3660,69 +3692,6 @@ public static class P2VirtualPad
         {
             var mask = P2IconArt.Mask(iconName);
             if (mask != null) P2IconArt.BlendMask(px, n, mask, gs, 0.95f);
-        }
-
-        // ⑥ 圆外极窄的一圈柔光：让按键脱离底色（扁平风也不该硬切在底上）
-        if (kind != KindRing)
-        {
-            float haloR = r * 0.07f;
-            for (int y = 0; y < n; y++)
-                for (int x = 0; x < n; x++)
-                {
-                    float dx = x + 0.5f - r, dy = y + 0.5f - r;
-                    float d = Mathf.Sqrt(dx * dx + dy * dy);
-                    if (d <= r || d > r + haloR) continue;
-                    float g = 1f - (d - r) / haloR;
-                    g = g * g * 0.10f;
-                    var c0 = px[y * n + x];
-                    px[y * n + x] = new Color32(
-                        (byte)(Mathf.Clamp01(c0.r / 255f + g) * 255f),
-                        (byte)(Mathf.Clamp01(c0.g / 255f + g) * 255f),
-                        (byte)(Mathf.Clamp01(c0.b / 255f + g) * 255f), 255);
-                }
-        }
-
-        // ⑦ 圆外改成**真透明**（2026-11-11）。
-        //
-        // 旧做法的前提是「黑边是纯黑」，于是把圆外一律写成不透明的纯黑方角，
-        // 靠"和黑边同色"来隐身（见 _padCache 那段注释）。现在黑边有了会随场景
-        // 变色的环境光底衬，黑色方角会在渐变的边上露出一块块 192x192 的黑补丁 ——
-        // 那是比原来更明显的丑。所以这里把圆外 alpha 归零、颜色归零，
-        // 贴图按 AlphaBlend 画，圆外完全不参与混合。
-        //
-        // 混色公式（画家算法）：盘内像素本来就把底色烘进去了（见上面的注释：
-        // 整个 ①~⑤ 是"预乘进 RGB、A 恒 255"），所以盘内保持 A=255、RGB 不变；
-        // 只有 halo 那一圈要从"加亮"换成"半透明叠加"，否则会在边沿留一圈硬边。
-        {
-            float aaW = Mathf.Max(1.2f, r * 0.012f);      // 圆边抗锯齿带（约 1px）
-            float haloR = r * 0.07f;                      // 圈外柔光（原来 ⑥ 那一段）
-            for (int y = 0; y < n; y++)
-                for (int x = 0; x < n; x++)
-                {
-                    float dx = x + 0.5f - r, dy = y + 0.5f - r;
-                    float d = Mathf.Sqrt(dx * dx + dy * dy);
-                    int i = y * n + x;
-                    if (d <= r - aaW) continue;           // 盘内实心区原样保留（A=255）
-
-                    if (d < r)
-                    {
-                        // 圆边 1px 抗锯齿：保持 RGB，alpha 渐隐
-                        float a = (r - d) / aaW;
-                        Color32 c0 = px[i];
-                        px[i] = new Color32(c0.r, c0.g, c0.b, (byte)(Mathf.Clamp01(a) * 255f));
-                    }
-                    else if (d < r + haloR)
-                    {
-                        // 圈外柔光：白色、二次衰减（等价于原来 ⑥ 的加法提亮，
-                        // 但走 alpha 混合 ⇒ 不管底下是什么颜色都不会留黑角）
-                        float ht = 1f - (d - r) / haloR;
-                        px[i] = new Color32(255, 255, 255, (byte)(ht * ht * 26f));
-                    }
-                    else
-                    {
-                        px[i] = new Color32(0, 0, 0, 0);  // 圆外彻底透明
-                    }
-                }
         }
 
         // ★ 2026-11-05 修的行序 bug：
@@ -3740,5 +3709,32 @@ public static class P2VirtualPad
         t.SetPixels32(dst);
         t.Apply();
         return t;
+    }
+
+    /// <summary>0..255 浮点 → Color32 分量（clamp + 四舍五入）。</summary>
+    static byte ClampB(float v)
+    {
+        if (v <= 0f) return 0;
+        if (v >= 255f) return 255;
+        return (byte)(v + 0.5f);
+    }
+
+    /// <summary>
+    /// straight-alpha 的「over」：把颜色 (sr,sg,sb) 以不透明度 sa 叠到 dst 上面。
+    /// 用来在半透明的盘面上盖不透光的图标 / 亮环 —— 结果是 alpha 变高、颜色趋白，
+    /// 而不是像旧版那样把 alpha 直接写成 255（那样半透明就没了）。
+    /// </summary>
+    static void Over(ref Color32 dst, float sr, float sg, float sb, float sa)
+    {
+        sa = Mathf.Clamp01(sa);
+        if (sa <= 0f) return;
+        float da = dst.a / 255f;
+        float ao = sa + da * (1f - sa);
+        if (ao <= 0.002f) { dst = new Color32(0, 0, 0, 0); return; }
+        float inv = 1f / ao;
+        float r = (sr * sa + dst.r * da * (1f - sa)) * inv;
+        float g = (sg * sa + dst.g * da * (1f - sa)) * inv;
+        float b = (sb * sa + dst.b * da * (1f - sa)) * inv;
+        dst = new Color32(ClampB(r), ClampB(g), ClampB(b), ClampB(ao * 255f));
     }
 }

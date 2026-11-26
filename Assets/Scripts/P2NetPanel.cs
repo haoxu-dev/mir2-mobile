@@ -7,10 +7,12 @@
 //
 // 所以：不进游戏不打扰、不弹开始界面、不拦启动流程。玩家想联机才点它。
 //
-// 视觉约束（都是这个 Tuanjie 构建的实测结论，见 P2VirtualPad 顶部那段长注释）：
-//   IMGUI 的 A 通道整条链被丢掉，GUI.color 的 alpha 不起作用，
-//   每次 DrawTexture 都是**不透明地刷一整块矩形**。
-//   ⇒ 这一层只用不透明纯色贴图 + 文字，不做半透明叠层，不叠两张图。
+// 视觉约束（2026-11-26 订正过，别照旧注释改回去）：
+//   A 通道**没有**被丢掉 —— P2StickArt 的摇杆底盘靠 A=0 透出地图，实机成立。
+//   真正的约束是：GUI.color 的 alpha 对 DrawTexture 只做 RGB 乘算，不是整体不透明度旋钮。
+//   ⇒ 想要透明，就把 alpha 写进**贴图**并配 DrawTexture(..., alphaBlend:true)，
+//     不要指望 GUI.color.a，也不要为半透明在代码里叠两层图。
+//   这一层目前全部用不透明纯色贴图 + 文字，本身就够用，没有改动的必要。
 using System.Collections.Generic;
 using Client.MirCore;
 using UnityEngine;

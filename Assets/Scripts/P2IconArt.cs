@@ -181,10 +181,21 @@ public static class P2IconArt
 
                 int i = y * n + x;
                 Color32 c0 = px[i];
-                float rr = c0.r * (1f - sh) * (1f - a * strength) + 255f * a * strength;
-                float gg = c0.g * (1f - sh) * (1f - a * strength) + 255f * a * strength;
-                float bb = c0.b * (1f - sh) * (1f - a * strength) + 255f * a * strength;
-                px[i] = new Color32(ClampByte(rr), ClampByte(gg), ClampByte(bb), 255);
+                // 阴影：只压颜色、不动 alpha（半透明盘面上再压暗才像投影）
+                float k = 1f - sh;
+                float br = c0.r * k, bg2 = c0.g * k, bb = c0.b * k;
+                // 图标本体：straight-alpha「over」—— 半透明白盖上去，alpha 会跟着抬高，
+                // 但盘面其余部分保持半透明（旧版这里写死 A=255，整张贴图又变不透明）。
+                float sa = Mathf.Clamp01(a * strength);
+                float da = c0.a / 255f;
+                float ao = sa + da * (1f - sa);
+                if (ao <= 0.002f) continue;
+                float invA = 1f / ao;
+                px[i] = new Color32(
+                    ClampByte((255f * sa + br * da * (1f - sa)) * invA),
+                    ClampByte((255f * sa + bg2 * da * (1f - sa)) * invA),
+                    ClampByte((255f * sa + bb * da * (1f - sa)) * invA),
+                    ClampByte(ao * 255f));
             }
         }
     }
@@ -231,11 +242,16 @@ public static class P2IconArt
                 if (a <= 0.004f) continue;
                 int i = y * n + x;
                 Color32 c0 = px[i];
+                // straight-alpha「over」：原画盖在盘面上，alpha 跟着抬高但不钉死 255，
+                // 否则整张贴图又变成不透明（2026-11-26）。
+                float da = c0.a / 255f;
+                float ao = a + da * (1f - a);
+                float invA = ao > 0.002f ? 1f / ao : 0f;
                 px[i] = new Color32(
-                    ClampByte(c0.r * (1f - a) + sr * a),
-                    ClampByte(c0.g * (1f - a) + sg * a),
-                    ClampByte(c0.b * (1f - a) + sb * a),
-                    255);
+                    ClampByte((sr * a + c0.r * da * (1f - a)) * invA),
+                    ClampByte((sg * a + c0.g * da * (1f - a)) * invA),
+                    ClampByte((sb * a + c0.b * da * (1f - a)) * invA),
+                    ClampByte(ao * 255f));
             }
         }
     }
