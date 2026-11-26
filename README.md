@@ -5,8 +5,8 @@
 服务端内嵌在手机里，一台手机就能开服，别的手机连过来一起打。
 
 <p align="center">
+  <img src="screenshots/04_半透明虚拟按键_全屏.png" width="45%" />
   <img src="screenshots/01_换怪键与目标名条_全屏.png" width="45%" />
-  <img src="screenshots/03_雷电术命中远处怪_全屏.png" width="45%" />
 </p>
 
 <p align="center">
