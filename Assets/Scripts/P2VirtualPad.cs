@@ -44,45 +44,76 @@ public static class P2VirtualPad
     //     · 右栏两列：外列 = 攻击 + 4 个功能键（等距），内列 = 拾取 + 出招键（同一竖线）。
     //     · 左栏只有摇杆盘和对话键，盘心贴屏幕底，对话键落在盘顶上方。
     //     · 绘制和点选**共用 GetCenters()** 这一份坐标，不可能再「画在这儿、点在那儿」。
-    const float HotRadius = 225f;   // 摇杆热区半径（手指落在这个圆里就算按到摇杆）
-    const float StickRadius = 118f; // 摇杆头最大行程
-    const float DeadZone = 0.16f;   // 死区：小于这个比例不动（0.16 × 118 ≈ 19px）
-    const float Gap = 64f;          // 相邻两键**圆边之间**的标准缝（唯一间距模数）
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 2026-11-26：整套按键尺寸改成**可缩放**。
+    //
+    //  起因是 GitHub Issue #1（用户 army-yan）：「游戏里面的按钮超大无法修改」。
+    //  原来这些全是 const，界面上没有任何入口能改 —— 他说的是实情。
+    //
+    //  做法：所有以设备像素计的几何量都乘同一个系数 _S（见 SetScaleStep）。
+    //    · 半径、间距、距边距、NPC 选项坐标 —— 全乘，整体等比缩放；
+    //    · 无量纲的比例（DeadZone / StickKnobRatio / FillRatio）不乘；
+    //    · 字号**不乘**：按键缩小时文字保持可读，宁可撑满键面。
+    //  等比缩放的好处是「画」和「点」永远共用同一套数（GetCenters / CastCenter），
+    //  改一个 _S 两边同时生效，不可能出现「画在这儿、点在那儿」。
+    // ══════════════════════════════════════════════════════════════
+    static float _S = 1f;           // 全局缩放系数（0.80 ~ 1.30，四档）
+    static int _scaleStep = 1;      // 档位下标：0=小 1=标准 2=大 3=特大
+    static int _alphaStep = 1;      // 按键浓淡档位：0=淡 1=标准 2=明显
 
-    const float UtilR = 76f;        // 功能键统一半径
-    const float AtkRadius = 100f;   // 攻击键（唯一的特大键，视觉焦点）
+    public static float UiScale { get { return _S; } }
+
+    /// <summary>档位→系数。标准档必须正好是 1.0（否则等于把现有布局整体改了）。</summary>
+    static readonly float[] ScaleTable = { 0.80f, 1.00f, 1.15f, 1.30f };
+    static readonly string[] ScaleName = { "小", "标准", "大", "特大" };
+    static readonly float[] IdleAlphaTable = { 0.34f, 0.45f, 0.60f };
+    static readonly string[] AlphaName = { "淡", "标准", "明显" };
+    /// <summary>各档愿意把键缝收紧到原值的几分之几（见 FitScale）。小档不用收，越大越要收。</summary>
+    static readonly float[] GapShrinkK = { 1.00f, 1.00f, 0.55f, 0.28f };
+
+    static float HotRadius { get { return 225f * _S; } }   // 摇杆热区半径（手指落在这个圆里就算按到摇杆）
+    static float StickRadius { get { return 118f * _S; } } // 摇杆头最大行程
+    const float DeadZone = 0.16f;   // 死区：小于这个比例不动（0.16 × 118 ≈ 19px）
+    // ★ 2026-11-26：Gap 不再只跟 _S 等比，而是 FitScale() 按屏幕高度算出来的实际缝。
+    //  理由见 FitScale 的注释：右栏 5 个键竖向排，光靠等比缩放，放大档在这个屏上
+    //  物理装不下（「大」和「特大」会缩成同一个数，档位形同虚设）。
+    //  先把缝收窄再谈放大 —— 键变大、缝变窄，才是「按钮调大」的真效果。
+    static float _gap = 64f;
+    static float Gap { get { return _gap; } }   // 相邻两键**圆边之间**的标准缝（唯一间距模数）
+
+    static float UtilR { get { return 76f * _S; } }        // 功能键统一半径
+    static float AtkRadius { get { return 100f * _S; } }   // 攻击键（唯一的特大键，视觉焦点）
 
     // 半径别名：语义名全部保留（点选代码按名字用），但值只来自上面两个模数。
-    const float PickRadius = UtilR;   // 拾取
-    const float PotRadius = UtilR;    // 喝药
-    const float NpcRadius = UtilR;    // 对话
-    const float BagRadius = UtilR;    // 背包
-    const float EqpRadius = UtilR;    // 装备
-    const float SkillRadius = UtilR;  // 技能页
+    static float PickRadius { get { return UtilR; } }    // 拾取
+    static float PotRadius { get { return UtilR; } }     // 喝药
+    static float NpcRadius { get { return UtilR; } }     // 对话
+    static float BagRadius { get { return UtilR; } }     // 背包
+    static float EqpRadius { get { return UtilR; } }     // 装备
+    static float SkillRadius { get { return UtilR; } }   // 技能页
 
     // 两列中心距**屏幕右缘**（2616 宽 ⇒ 外列 2452 / 内列 2200；右留 164，左留 56）
-    const float ColOuterM = 164f;
-    const float ColInnerM = 416f;
+    static float ColOuterM { get { return 164f * _S; } }
+    static float ColInnerM { get { return 416f * _S; } }
 
     // 右栏各行的中心距**屏幕下缘**（全部由 Gap 推出来，没有手写魔数）
-    const float AtkRowM = 140f;                                         // 40 边距 + r100
-    const float PotRowM = AtkRowM + AtkRadius + Gap + UtilR;            // 380
-    const float BagRowM = PotRowM + UtilR * 2f + Gap;                   // 596
-    const float EqpRowM = BagRowM + UtilR * 2f + Gap;                   // 812
-    const float SkillRowM = EqpRowM + UtilR * 2f + Gap;                 // 1028（上边留 36）
+    static float AtkRowM { get { return 140f * _S; } }                  // 40 边距 + r100
+    static float PotRowM { get { return AtkRowM + AtkRadius + Gap + UtilR; } }   // 380
+    static float BagRowM { get { return PotRowM + UtilR * 2f + Gap; } }          // 596
+    static float EqpRowM { get { return BagRowM + UtilR * 2f + Gap; } }          // 812
+    static float SkillRowM { get { return EqpRowM + UtilR * 2f + Gap; } }        // 1028（上边留 36）
 
     // 左栏（黑边中线 x = 274，宽 548）
-    const float LeftColM = 274f;
-    const float StickRowM = 240f;   // 摇杆盘心 ⇒ y=900，可视盘半径 190 ⇒ 710..1090
-    const float NpcRowM = 570f;     // 对话键 ⇒ y=570，494..646，盘顶 710 之上留 64 = Gap
+    static float LeftColM { get { return 274f * _S; } }
+    static float StickRowM { get { return 240f * _S; } }   // 摇杆盘心 ⇒ y=900，可视盘半径 190 ⇒ 710..1090
+    static float NpcRowM { get { return 570f * _S; } }     // 对话键 ⇒ y=570，494..646，盘顶 710 之上留 64 = Gap
 
     // 出招键列（右栏内列，与拾取键同一竖线）
     //   区段固定：[24, 拾取键顶边 − Gap]。键数变化时**只改半径不改间距模数**，
     //   所以同一列里永远等大、等步长，不会像旧版那样 45/53/62 一路跳。
-    const float CastColTop = 24f;
-    const float CastRMax = UtilR;   // 技能 ≤5 个时与功能键同大
-    const float CastRMin = 44f;     // 8 个时的下限
-    const float CastGapK = 16f;     // 同一列内相邻两圆的缝（技能簇比功能键更紧凑）
+    static float CastColTop { get { return 24f * _S; } }
+    static float CastRMax { get { return UtilR; } }   // 技能 ≤5 个时与功能键同大，也是这一列的上限
+    static float CastGapK { get { return 16f * _S; } }    // 同一列内相邻两圆的缝（技能簇比功能键更紧凑）
 
     // ── 技能出招键（2026-11-02 新增）：F1~F8 的手机版 ──
     //
@@ -116,23 +147,21 @@ public static class P2VirtualPad
     //   改成**按技能个数自动定尺寸**：只有 2~4 个技能时撑到 r=74（和拾取键同大），
     //   学到 6、7、8 个才逐级缩回 45，保证整列永远装得进 y∈[60,833]。
     //   两头都靠 CastRadiusNow()/CastCenter() 算，绘制与点选共用，不会错位。
-    // 旧名保留（点选/绘制都按这些名字引用），值统一来自上面的网格模数。
-    const float CastRadiusMax = CastRMax;
-    const float CastRadiusMin = CastRMin;
-    const float CastMarginX = ColInnerM;   // 与拾取键同一竖线（W-416）
-    const float CastTopLimit = CastColTop;
+    // 旧名保留（点选/绘制还按这些名字引用），值统一来自上面的网格模数。
+    static float CastRadiusMax { get { return CastRMax; } }
+    static float CastMarginX { get { return ColInnerM; } }   // 与拾取键同一竖线（W-416）
     // 列底端：拾取键顶边再留一个 Gap ⇒ y = H - AtkRowM - UtilR - Gap
     // 旧常量已改成 CastBotLimitNow(H)（跟屏幕高走）。保留名字只为兼容旧引用。
-    const float CastGap = CastGapK;
+    static float CastGap { get { return CastGapK; } }
     const int   CastMax = 8;          // 一排最多 8 个（= 原版 F1..F8）
-    const float CastBarRadius = UtilR * 0.62f;   // 栏位切换键（略小）
+    static float CastBarRadius { get { return UtilR * 0.62f; } }   // 栏位切换键（略小）
     // 栏位键位置：右栏内列从 y=24 到 860 全被出招键占满、拾取键下面也没有空档，
     // 所以翻页键放到**左栏**对话键正上方（用 Gap 推：对话键顶边 − Gap − r）。
     // 它只在技能超过 8 个时才出现，是个低频键，放远一点不影响操作；
     // 放右边反而会和出招键抢手指。
-    const float CastPageX = LeftColM;
+    static float CastPageX { get { return LeftColM; } }
     // 距下缘，由网格推：对话键底边 + Gap + 自己半径 ⇒ 与对话键恒留一个 Gap
-    const float CastPageRowM = NpcRowM + UtilR + Gap + UtilR * 0.62f;   // = 757.12
+    static float CastPageRowM { get { return NpcRowM + UtilR + Gap + UtilR * 0.62f; } }   // = 757.12
 
     // ── 换目标键（2026-11-16 新增）──
     //
@@ -152,9 +181,204 @@ public static class P2VirtualPad
     //   实测圆心距（全部大于半径和，不重叠也不抢手指）：
     //     喝药 192.5（需 138）/ 攻击 179.6（需 162）/ 拾取 155.6（需 138）
     //     / 出招① 152.8（需 138，满 8 技能时 133.2 需 107）—— 最小余量 14.8px。
-    const float NextColM = 306f;    // 距屏幕右缘 ⇒ x = W − 306 = 2310
-    const float NextRowM = 250f;    // 距屏幕下缘 ⇒ y = H − 250 = 890
-    const float NextRadius = 62f;   // 与 NPC 选项键同尺寸
+    static float NextColM { get { return 306f * _S; } }    // 距屏幕右缘 ⇒ x = W − 306 = 2310
+    static float NextRowM { get { return 250f * _S; } }    // 距屏幕下缘 ⇒ y = H − 250 = 890
+    static float NextRadius { get { return 62f * _S; } }   // 与 NPC 选项键同尺寸
+
+    // ── 外观设置的持久化（2026-11-26 新增）──
+    //
+    // 存 PlayerPrefs 而不是存文件：P2NetMode 的联机设置也走 PlayerPrefs，
+    // Android 上就是 SharedPreferences，卸载前一直有效，不用自己管路径和权限。
+    const string PrefScale = "p2.pad.scale";   // 0..3
+    const string PrefAlpha = "p2.pad.alpha";   // 0..2
+    static bool _lookLoaded;
+
+    static void LoadLook()
+    {
+        if (_lookLoaded) return;
+        _lookLoaded = true;
+        _scaleStep = Mathf.Clamp(PlayerPrefs.GetInt(PrefScale, 1), 0, ScaleTable.Length - 1);
+        _alphaStep = Mathf.Clamp(PlayerPrefs.GetInt(PrefAlpha, 1), 0, IdleAlphaTable.Length - 1);
+        _S = ScaleTable[_scaleStep];
+    }
+
+    /// <summary>
+    /// 按屏幕高度定**实际缩放 + 实际缝宽**。
+    ///
+    /// 右栏外列竖着排了 5 个键（攻击/喝药/背包/装备/技能页）。设档位 S、缝宽 g，
+    /// 最上沿距屏幕下缘 = 140S +100S +g +76S + 3×(76S×2 + g) + 76S = **848S + 4g**。
+    /// 旧代码 S=1、g=64 ⇒ 1104，在 1140 高的基准屏上只剩 36px 余量；
+    /// 屏幕高 1080 的常见机型上 = 1104 > 1080，**技能页键早就被顶出屏幕了**
+    /// （这是 Issue #1 说「屏幕小的手机按键占比例更大」的物理原因之一）。
+    ///
+    /// 所以这里不搞「等比放大再整体封顶」——那会把「大」和「特大」压成同一个数，
+    /// 档位形同虚设。改成**先收缝、再放大**：
+    ///   · 目标越大，缝越小（64 → 64 → 35 → 18），键收紧腾地方；
+    ///   · 缝收到下限仍装不下，才回头压 S（此时设置页如实标出真实比例）。
+    ///
+    /// Step() 和 Draw() 每帧各调一次，必须同值，否则「画在这儿、点在那儿」。
+    /// </summary>
+    static void FitScale(float H)
+    {
+        const float gMin = 14f;                   // 缝的绝对下限（设备像素）：再小两键就粘成一团
+        float avail = H - 16f;                    // 上下各留 8px 不贴边
+        if (avail < 400f) avail = 400f;
+
+        float want = ScaleTable[_scaleStep];
+        // 缝跟着档位走：先按比例（64×S，与旧布局一致），再乘该档愿意收紧到的系数。
+        // gapK 提到 static readonly：这个函数每帧调两次，数组不能每帧 new（手机 GC 会抖）。
+        float g = 64f * want * GapShrinkK[Mathf.Clamp(_scaleStep, 0, GapShrinkK.Length - 1)];
+
+        // 848S + 4g ≤ avail
+        if (848f * want + 4f * g > avail)
+        {
+            g = Mathf.Max(gMin, (avail - 848f * want) / 4f);   // 先收缝
+            if (848f * want + 4f * g > avail)
+            {
+                // 缝到底还装不下 ⇒ 压 S（缝保持下限不动）
+                g = gMin;
+                want = Mathf.Clamp((avail - 4f * g) / 848f, 0.55f, want);
+            }
+        }
+        _S = want;
+        _gap = g;
+    }
+
+    static void SaveLook()
+    {
+        PlayerPrefs.SetInt(PrefScale, _scaleStep);
+        PlayerPrefs.SetInt(PrefAlpha, _alphaStep);
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>把画面上这些按钮整体放大/缩小一档（设置面板调用）。</summary>
+    public static void StepScale(int dir)
+    {
+        LoadLook();
+        _scaleStep = Mathf.Clamp(_scaleStep + dir, 0, ScaleTable.Length - 1);
+        _S = ScaleTable[_scaleStep];
+        FitScale(Screen.height);   // 立刻按本机屏幕封顶，日志里写的是**这一帧真实生效**的比例
+        SaveLook();
+        ShowToast("按键大小：" + ScaleName[_scaleStep]);
+        if (Log != null) Log("[外观] 按键大小 → " + ScaleName[_scaleStep] + "（×" + _S.ToString("0.00") + "）");
+    }
+
+    /// <summary>按键浓淡切换（设置面板调用）。</summary>
+    public static void StepAlpha(int dir)
+    {
+        LoadLook();
+        _alphaStep = Mathf.Clamp(_alphaStep + dir, 0, IdleAlphaTable.Length - 1);
+        SaveLook();
+        ShowToast("按键浓淡：" + AlphaName[_alphaStep]);
+        if (Log != null) Log("[外观] 按键浓淡 → " + AlphaName[_alphaStep]);
+    }
+
+    /// <summary>恢复默认外观（标准大小 + 标准浓淡）。设置页的「恢复默认」按钮调这个。</summary>
+    public static void ResetLook()
+    {
+        LoadLook();
+        _scaleStep = 1;
+        _alphaStep = 1;
+        _S = ScaleTable[_scaleStep];
+        SaveLook();
+        ShowToast("按键外观已恢复默认");
+        if (Log != null) Log("[外观] 恢复默认（标准 / 标准）");
+    }
+
+    /// <summary>
+    /// 设置页显示的大小档位。
+    /// 屏幕矮放不下时如实标注 —— 否则用户点了「特大」看到的还是「标准」，
+    /// 会以为按钮坏了；写明「屏幕放不下」他才知道是物理限制。
+    /// </summary>
+    public static string ScaleLabel
+    {
+        get
+        {
+            LoadLook();
+            FitScale(Screen.height);
+            float want = ScaleTable[_scaleStep];
+            string nm = ScaleName[_scaleStep];
+            // 只在实际被压下去超过 3% 时提示，轻微收边不值得吓人
+            if (_S < want * 0.97f) return nm + "（本机最高到这）";
+            return nm;
+        }
+    }
+
+    public static string AlphaLabel { get { LoadLook(); return AlphaName[_alphaStep]; } }
+    public static bool ScaleAtMin { get { LoadLook(); return _scaleStep <= 0; } }
+    public static bool ScaleAtMax { get { LoadLook(); return _scaleStep >= ScaleTable.Length - 1; } }
+    public static bool AlphaAtMin { get { LoadLook(); return _alphaStep <= 0; } }
+    public static bool AlphaAtMax { get { LoadLook(); return _alphaStep >= IdleAlphaTable.Length - 1; } }
+
+    /// <summary>
+    /// 预览框的「尺子」：最大档（特大 + 它自己那档的缝）下三颗键摆一排的宽和高。
+    /// 缩放系数必须按这把尺子**一次定死**、四档共用；按当前档位现算的话，
+    /// 每一档都会刚好塞满框子，四档在预览里长得一模一样。
+    /// 从表里取而不是写死数值 —— 以后改档位，预览会自动跟上，不会只改一半。
+    /// </summary>
+    static void LookPreviewBasis(out float maxW, out float maxH)
+    {
+        int last = ScaleTable.Length - 1;
+        float SMax = ScaleTable[last];
+        float GMax = 64f * SMax * GapShrinkK[last];
+        maxW = 4f * 76f * SMax + 2f * 100f * SMax + 2f * GMax;
+        maxH = 2f * 100f * SMax;
+    }
+
+    /// <summary>
+    /// 布局层用：预览框建议的宽高比（= 最大档三颗键摆一排的宽 ÷ 高）。
+    /// 框按这个比例定宽，才不会比内容宽出一大片空留白。
+    /// </summary>
+    public static float LookPreviewAspect
+    {
+        get { float w, h; LookPreviewBasis(out w, out h); return h > 1f ? w / h : 2.7f; }
+    }
+
+    /// <summary>
+    /// 设置面板里的「实际比例」预览：照当前档位画三个真按键（拾取 / 攻击 / 喝药）。
+    ///
+    /// 为什么非要有这块（2026-11-26）：设置面板是**整屏不透明**的，玩家调大小时
+    /// 根本看不见背后的按键 —— 没有预览的话，「改完立刻生效」在面板里就等于看不见，
+    /// 只能关掉面板再开一次才知道调成了什么样。这块框让档位变化当场看得见。
+    ///
+    /// 用的是和游戏里**同一个** DrawFunc / MakePad，所以看到的就是真按键，
+    /// 不是另画一套示意图（两套图迟早会漂）。
+    /// </summary>
+    public static void DrawLookPreview(Rect box)
+    {
+        if (box.width < 60f || box.height < 50f) return;
+        if (_style == null) EnsureStyle();
+        LoadLook();
+        FitScale(Screen.height);
+
+        float maxW, maxH;
+        LookPreviewBasis(out maxW, out maxH);
+        float k = 0.80f;
+        if (maxH > 1f) k = Mathf.Min(k, box.height * 0.94f / maxH);
+        if (maxW > 1f) k = Mathf.Min(k, box.width * 0.96f / maxW);
+        if (k <= 0.05f) return;
+
+        var oldAlign = _style.alignment;
+        _style.alignment = TextAnchor.MiddleCenter;
+
+        float a = IdleAlpha;
+        float cy = box.y + box.height * 0.5f;
+        float needW = 4f * UtilR + 2f * AtkRadius + 2f * Gap;
+        float x0 = box.x + box.width * 0.5f - needW * k * 0.5f;
+        Vector2 pickC = new Vector2(x0 + UtilR * k, cy);
+        Vector2 atkC = new Vector2(x0 + (2f * UtilR + Gap + AtkRadius) * k, cy);
+        Vector2 potC = new Vector2(x0 + (2f * UtilR + Gap + 2f * AtkRadius + Gap + UtilR) * k, cy);
+        Color white = new Color(1f, 1f, 1f, 0.92f);
+
+        DrawFunc(pickC, UtilR * k, a * FillRatio, a * 0.95f, 0f, 0f,
+                 "pick", 0.60f, "拾取", white, true);
+        DrawFunc(atkC, AtkRadius * k, a * FillRatio, a * 0.95f, 0f, 0f,
+                 "attack", 0.58f, "攻击", white);
+        DrawFunc(potC, UtilR * k, a * FillRatio, a * 0.95f, 0f, 0f,
+                 "pot", 0.60f, "喝药", white);
+
+        _style.alignment = oldAlign;
+    }
 
     // ── 运行态 ──
     static float _releasedAt = -999f;   // 摇杆最后一次松手的时刻（松手 1.2 秒内不自动追怪）
@@ -165,7 +389,7 @@ public static class P2VirtualPad
     // 常态透明度取用户口径 0.28~0.45 的**上限**：这条链把 alpha 预乘进 RGB，
     // 黑底上一律按 0..255 直读，0.34 实测只有 73/255（描边）与 22/255（填充），
     // 屏幕上几乎看不出是个按键。0.45 才勉强等于「半透明白键」的观感。
-    const float IdleAlpha = 0.45f;  // 常态透明度
+    static float IdleAlpha { get { return IdleAlphaTable[_alphaStep]; } }  // 常态透明度（可调）
     const float PressAlpha = 0.70f; // 按下时
     const float KnobAlpha = 0.62f;
 
@@ -179,7 +403,7 @@ public static class P2VirtualPad
     // 摇杆的「视觉」尺寸（与上面的热区/行程是两套东西，2026-11-01 拆开）
     //   热区 HotRadius=235 是手指落点判定，做大一点更好按；
     //   视觉环 190 才是画出来的大小。两者不相等是手游的标准做法。
-    const float StickBaseRadius = 190f;  // 底盘空心环半径
+    static float StickBaseRadius { get { return 190f * _S; } }  // 底盘空心环半径
     const float StickKnobRatio = 0.44f;  // 摇杆头半径 = StickRadius * 该比例 ≈ 52
     // ★ 2026-11-01 改：0.52 → 1.0。原来球只走手指一半，配合「底盘跟手漂移」，
     //   视觉上分不清是球在动还是盘在动，整体像一张贴图。底盘钉死之后球必须
@@ -319,10 +543,7 @@ public static class P2VirtualPad
     // 做法：对话框一出现，就把里面的链接文字搬到**右侧黑边**，竖着排一排大按钮
     // （宽 460 高 132 设备像素 ≈ 3 倍手指直径），点一下调 ClickNpcButton(文字)。
     // 黑边宽 548，按钮居中在 x = W - 230，正好不挡游戏画面。
-    const float NpcOptRadius = 62f;
-    const float NpcOptMarginX = 230f;   // 距右边缘
-    const float NpcOptTop = 300f;       // 第一个按钮距屏幕上沿
-    const float NpcOptStep = 150f;      // 相邻按钮的垂直间距
+    static float NpcOptRadius { get { return 62f * _S; } }
     const int   NpcOptMax = 6;          // 最多显示 6 个（再多就不适合用手指点了）
 
     static string[] _npcOpts = new string[0];   // 当前要显示的链接文字
@@ -345,14 +566,14 @@ public static class P2VirtualPad
     static Vector2 NpcOptCenter(int i, float W)
     {
         int col = i % 2, row = i / 2;
-        return new Vector2(NpcOptColX[col], NpcOptRowY[row]);
+        return new Vector2(NpcOptColXTable[col] * _S, NpcOptRowYTable[row] * _S);
     }
 
-    static readonly float[] NpcOptColX = { 140f, 400f };
-    static readonly float[] NpcOptRowY = { 70f, 215f, 360f };
+    static readonly float[] NpcOptColXTable = { 140f, 400f };
+    static readonly float[] NpcOptRowYTable = { 70f, 215f, 360f };
 
     /// <summary>对话关闭键的中心：左侧黑边最下面一行，正好在对话键上方。</summary>
-    static Vector2 NpcCloseCenter(float W) { return new Vector2(270f, 505f); }
+    static Vector2 NpcCloseCenter(float W) { return new Vector2(270f * _S, 505f * _S); }
 
     // ────────────────────────────────────────────────────────────
     //  出招键（F1~F8 的手机版）
@@ -399,7 +620,13 @@ public static class P2VirtualPad
         int n = Mathf.Max(1, CastCountNow());
         float span = CastBotLimitNow(H) - CastColTop;
         float r = (span - (n - 1) * CastGap) / (2f * n);
-        return Mathf.Clamp(r, CastRadiusMin, CastRadiusMax);
+        // ★ 2026-11-26：下限不能再硬夹到「44×S」那种按档位等比放大的值。
+        //  这一列的可用高度并不随 S 等比涨（下边界是按键半径、上边界是屏幕高），
+        //  放大档再学满 8 个技能时几何上只装得下 r≈42，硬夹回更大的值
+        //  会让整列顶出屏幕上沿两百多像素。宁可键略小，也绝不能出屏 ——
+        //  上限照旧由 CastRadiusMax 管；12px 只是防负数/退化的安全网，
+        //  正常机型永远碰不到。
+        return Mathf.Clamp(r, 12f, CastRadiusMax);
     }
 
     /// <summary>
@@ -1154,6 +1381,8 @@ public static class P2VirtualPad
     /// </summary>
     public static bool Step(GameScene gs, Rect viewport)
     {
+        LoadLook();          // 首次调用读一次外观设置（缩放/浓淡），之后是空转
+        FitScale(Screen.height);   // 每帧按实际屏幕高度封顶，调大不会把键顶出屏幕
         _viewport = viewport;
 
         if (gs == null) { Reset(); return false; }
@@ -2810,6 +3039,8 @@ public static class P2VirtualPad
 
     public static void Draw()
     {
+        LoadLook();
+        FitScale(Screen.height);   // 和 Step 必须同一套比例，否则「画在这儿、点在那儿」
         if (_style == null) EnsureStyle();
         // ★ 2026-11-11 0.0195→0.021：理由同 DrawFunc，去掉合成粗体后整体放大一号
         //   （1140 高 ⇒ 24px；NPC 选项键 / 提示条都用这个基准）
@@ -2837,7 +3068,9 @@ public static class P2VirtualPad
         Vector2 c = hotCenter;
         Vector2 knobRaw = _active ? _knob : hotCenter;
         Vector2 knob = _active ? c + (knobRaw - c) * StickVisRatio : hotCenter;
-        bool artOk = P2StickArt.Draw(c, knob.x - c.x, knob.y - c.y);
+        // ★ 2026-11-26：多传一个 _S —— 摇杆美术以前是固定 480 贴死的，
+        //   设置里改按键大小时热区/行程跟着缩，屏幕上的盘面却不缩，手感和眼睛会脱节。
+        bool artOk = P2StickArt.Draw(c, knob.x - c.x, knob.y - c.y, _S);
 
         if (!artOk)
         {
@@ -3238,7 +3471,13 @@ public static class P2VirtualPad
                             float inner, float bg, int kind,
                             string iconName, int magFrame, float glyphScale, Color? tint)
     {
-        int n = radius >= 80f ? 192 : 128;   // 小键降到 128，省显存（8 个出招键各有独立贴图）
+        // ★ 2026-11-26：分辨率阈值改成**按未缩放的基准半径**判。
+        //  以前这里是 `radius >= 80f`，radius 是写死的基准值（76 / 100）；
+        //  现在 radius 乘了 _S，UtilR=76 在「大」档变成 87.4 会跨过 80 ⇒ 同一颗键
+        //  只是调了一下大小，贴图分辨率就从 128 跳到 192，既多吃显存、图标描边
+        //  粗细也跟着变。除回 _S 就永远按原始尺寸判，换档只改显示大小、不改贴图。
+        float baseR = _S > 0.001f ? radius / _S : radius;
+        int n = baseR >= 80f ? 192 : 128;   // 小键降到 128，省显存（8 个出招键各有独立贴图）
         int kf = Q(fill), kr = Q(ring), ki = Q(inner), kb = Q(bg), kg = Q(glyphScale);
         var tex = GetPad(n, kf, kr, ki, kb, kind, iconName, magFrame, kg);
         // GUI.color 是乘算：tint=(1,0.86,0.55) ⇒ 盘面偏金，图标白处也一起偏金。

@@ -287,29 +287,41 @@ public static class P2StickArt
     }
 
     /// <summary>
-    /// 画摇杆。offset 是球头相对底盘中心的位移（像素），静止时传 (0,0)。
+    /// 画摇杆。offset 是球头相对底盘中心的位移（像素，**已按屏幕像素计**），静止时传 (0,0)。
+    /// scale 是按键大小档位给出的缩放系数（P2VirtualPad.UiScale）。
     /// 返回 false 表示美术没就绪，调用方应退回手绘版本。
+    ///
+    /// ★ 2026-11-26：原来这张贴图是「480 见方一次贴死」的，盘面半径写死 190 —— 而
+    ///   P2VirtualPad 那边的 StickBaseRadius / StickRadius 已经跟着设置里的按键大小走，
+    ///   于是调小档位时热区、行程、球头判定都缩了，屏幕上这块美术却纹丝不动，
+    ///   手感和眼睛对不上。现在贴图本身仍在 480 的原始分辨率里生成（省得每种档位
+    ///   各做一套贴图），只在**贴到屏幕上的目的地矩形**乘 scale，一次采样解决。
+    ///   补丁的偏移同样乘 scale，否则球头会和手指位置错开。
     /// </summary>
-    public static bool Draw(Vector2 center, float offsetX, float offsetY)
+    public static bool Draw(Vector2 center, float offsetX, float offsetY, float scale)
     {
         Ensure();
         if (!_ok) return false;
+        if (scale <= 0.01f) scale = 1f;
 
         // 偏移量化到 2px：拖动时位置连续变化，不量化会每帧重建补丁（26k 像素 + 上传）
-        int ox = Mathf.RoundToInt(offsetX * 0.5f) * 2;
-        int oy = Mathf.RoundToInt(offsetY * 0.5f) * 2;
+        // 量化在**贴图像素**里做（补丁缓存按它算 key），贴出去时再乘 scale。
+        int ox = Mathf.RoundToInt(offsetX / scale * 0.5f) * 2;
+        int oy = Mathf.RoundToInt(offsetY / scale * 0.5f) * 2;
 
         BuildPatch(ox, oy);
 
         GUI.color = Color.white;
-        // 底盘：480x480 原尺寸贴，盘面半径 190 与 StickBaseRadius 完全对齐
+        // 底盘：480x480 贴到 BaseSize*scale，盘面半径 = 190*scale，与 StickBaseRadius 对齐
         // alphaBlend=true：盘外已经裁成 A=0（见 ApplyDiscAlpha），
         // 不混合的话 Unity 会当成不透明贴图，盘外那圈黑方块照样糊上去。
-        GUI.DrawTexture(new Rect(center.x - BaseSize * 0.5f, center.y - BaseSize * 0.5f, BaseSize, BaseSize),
+        float bs = BaseSize * scale;
+        GUI.DrawTexture(new Rect(center.x - bs * 0.5f, center.y - bs * 0.5f, bs, bs),
             _baseTex, ScaleMode.StretchToFill, true);
         // 球头补丁：只在球心位置贴一小块
-        GUI.DrawTexture(new Rect(center.x + ox - PatchRadius, center.y + oy - PatchRadius,
-                                 PatchSize, PatchSize),
+        float ps = PatchSize * scale;
+        GUI.DrawTexture(new Rect(center.x + ox * scale - ps * 0.5f,
+                                 center.y + oy * scale - ps * 0.5f, ps, ps),
             _patchTex, ScaleMode.StretchToFill, true);
         return true;
     }

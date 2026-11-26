@@ -156,7 +156,22 @@ namespace P2
         const int ID_CONNECT = 6;
         const int ID_SEARCH = 7;
         const int ID_NEWCODE = 8;
+        // ── 按键外观页（2026-11-26 新增，对应 Issue #1「按钮超大无法修改」）──
+        const int ID_LOOK = 9;              // 第四个页签
+        const int ID_SCALE_DOWN = 20;
+        const int ID_SCALE_UP = 21;
+        const int ID_ALPHA_DOWN = 22;
+        const int ID_ALPHA_UP = 23;
+        const int ID_LOOK_RESET = 24;
         const int ID_ROOM_BASE = 100;
+
+        // 页签数：0 单机 / 1 开服 / 2 加入 / 3 外观
+        const int TabCount = 4;
+        // 外观页控件矩形（Layout 算好，Draw 直接用，避免"看得见点不着"）
+        static Rect[] _lookMinus = new Rect[2], _lookPlus = new Rect[2], _lookVal = new Rect[2];
+        static Rect _lookReset;
+        static Rect _lookPrev;   // 真实按键预览框（空矩形 = 放不下，不画）
+        static float _lookTop;   // 两行控件从这里起（上面留一行说明文字的高度）
 
         static void Layout()
         {
@@ -175,14 +190,15 @@ namespace P2
 
             y += ph * 0.115f;
 
-            // 三个模式按钮横排
+            // 页签按钮横排（2026-11-26 从 3 个改成 4 个）
             float gap = pw * 0.018f;
-            float bw = (pw - pad * 2 - gap * 2) / 3f;
+            float bw = (pw - pad * 2 - gap * (TabCount - 1)) / TabCount;
             float bh = ph * 0.115f;
             _modeBtnBase = y;
             _hits.Add(new Hit { id = ID_MODE_SINGLE, r = new Rect(_panel.x + pad, y, bw, bh) });
             _hits.Add(new Hit { id = ID_MODE_HOST, r = new Rect(_panel.x + pad + (bw + gap), y, bw, bh) });
             _hits.Add(new Hit { id = ID_MODE_JOIN, r = new Rect(_panel.x + pad + (bw + gap) * 2f, y, bw, bh) });
+            _hits.Add(new Hit { id = ID_LOOK, r = new Rect(_panel.x + pad + (bw + gap) * 3f, y, bw, bh) });
 
             y += bh + ph * 0.045f;
 
@@ -215,6 +231,62 @@ namespace P2
                     });
                 }
             }
+            else if (_tab == 3)
+            {
+                // 每行：标签（左）/ [−] [当前值] [+]（右）
+                float rowH = ph * 0.122f;
+                float stepW = ph * 0.100f;                 // 加减按钮是方键
+                float labW = pw * 0.20f;                   // 标签列收窄：值框要放得下「标准（本机最高到这）」
+                float valW = pw - pad * 2 - labW - stepW * 2 - gap * 2;
+                if (valW < pw * 0.30f) valW = pw * 0.30f;
+
+                // 说明文字占一行：按 BodyFontSize 的实际字号推，不写死
+                _lookTop = y + BodyFontSize() + 26f;
+
+                float rowStep = rowH + ph * 0.026f;
+                for (int i = 0; i < 2; i++)
+                {
+                    float ry = _lookTop + rowStep * i;
+                    float rx = _panel.x + pad + labW;
+                    _lookMinus[i] = new Rect(rx, ry, stepW, rowH);
+                    _lookVal[i] = new Rect(rx + stepW + gap, ry, valW, rowH);
+                    _lookPlus[i] = new Rect(rx + stepW + gap + valW + gap, ry, stepW, rowH);
+                }
+                _hits.Add(new Hit { id = ID_SCALE_DOWN, r = _lookMinus[0] });
+                _hits.Add(new Hit { id = ID_SCALE_UP, r = _lookPlus[0] });
+                _hits.Add(new Hit { id = ID_ALPHA_DOWN, r = _lookMinus[1] });
+                _hits.Add(new Hit { id = ID_ALPHA_UP, r = _lookPlus[1] });
+
+                // 「恢复默认」和预览框并排：左边一颗按钮，右边剩下的全给预览。
+                // 竖着排的话矮屏上预览会被挤没，而预览才是这一页最该看见的东西。
+                float btnH = ph * 0.100f;
+                float btnW = pw * 0.26f;
+                float by = _lookTop + rowStep * 2f + ph * 0.014f;
+                _lookReset = new Rect(_panel.x + pad, by, btnW, btnH);
+                _hits.Add(new Hit { id = ID_LOOK_RESET, r = _lookReset });
+
+                float px0 = _lookReset.xMax + gap;
+                float pyMax = _panel.yMax - pad;
+                float availH = pyMax - by;
+                float availW = _panel.xMax - pad - px0;
+                // ★ 2026-11-26：框的宽高比跟着**内容**走，不能把整条横带都给它。
+                //   原来「宽度 = 剩下的全部」⇒ 978 宽只有 163 高，里面三颗键挤在中间
+                //   一小块、两边各留一大片空 —— 看着像框没画完，按键也没显大。
+                //   现在先按内容比例定框，剩下多出来的宽度让它居中留白。
+                float aspect = P2VirtualPad.LookPreviewAspect;
+                if (aspect < 0.5f) aspect = 2.7f;      // 防御：表被改成奇怪值时退回实测比例
+                float boxH = availH;
+                float boxW = boxH * aspect;
+                if (boxW > availW) { boxW = availW; boxH = boxW / aspect; }
+                // 放得下才画（矮屏宁可不画，也不留一条压扁的缝）
+                // ★ 2026-11-26：门槛从 pw*0.28 降到 pw*0.20 —— 16:9 矮屏算出来正好
+                //   382px 宽，卡在旧门槛外，而那恰恰是「按钮占屏比例最大、最需要这个
+                //   设置」的机型。现在它能画出来（k≈0.51，标准键半径 39px），看得清。
+                if (boxW > pw * 0.20f && boxH > ph * 0.10f)
+                    _lookPrev = new Rect(px0 + (availW - boxW) * 0.5f, by, boxW, boxH);
+                else
+                    _lookPrev = new Rect(0, 0, 0, 0);
+            }
         }
 
         static int BodyFontSize()
@@ -227,7 +299,7 @@ namespace P2
             float pw = _panel.width;
             float pad = pw * 0.035f;
             float gap = pw * 0.018f;
-            float bw = (pw - pad * 2 - gap * 2) / 3f;
+            float bw = (pw - pad * 2 - gap * (TabCount - 1)) / TabCount;
             float bh = _panel.height * 0.115f;
             return new Rect(_panel.x + pad + (bw + gap) * index, _modeBtnBase, bw, bh);
         }
@@ -390,6 +462,32 @@ namespace P2
                     P2NetMode.NewPublicCode();
                     Log("[联机] 换成新码 " + P2NetMode.PublicCode);
                     return;
+
+                // ── 按键外观页（2026-11-26）──
+                case ID_LOOK:
+                    _tab = 3;
+                    return;
+
+                case ID_SCALE_DOWN:
+                    P2VirtualPad.StepScale(-1);
+                    return;
+
+                case ID_SCALE_UP:
+                    P2VirtualPad.StepScale(1);
+                    return;
+
+                case ID_ALPHA_DOWN:
+                    P2VirtualPad.StepAlpha(-1);
+                    return;
+
+                case ID_ALPHA_UP:
+                    P2VirtualPad.StepAlpha(1);
+                    return;
+
+                case ID_LOOK_RESET:
+                    P2VirtualPad.ResetLook();
+                    Log("[外观] 已恢复默认");
+                    return;
             }
 
             if (id >= ID_ROOM_BASE)
@@ -510,7 +608,7 @@ namespace P2
             float pad = p.width * 0.035f;
             _title.fontSize = Mathf.RoundToInt(Mathf.Clamp(p.height * 0.058f, 20f, 44f));
             Text(new Rect(p.x + pad, p.y + pad * 0.6f, p.width - pad * 2 - p.height * 0.09f, p.height * 0.09f),
-                 "联机设置", _title, C_GOLD);
+                 "设置", _title, C_GOLD);
 
             // 关闭
             var cr = new Rect(p.xMax - pad - p.height * 0.075f, p.y + pad * 0.55f, p.height * 0.075f, p.height * 0.075f);
@@ -519,11 +617,31 @@ namespace P2
             _btn.fontSize = Mathf.RoundToInt(cr.height * 0.66f);
             Text(cr, "×", _btn, C_TXT);
 
-            // 三个模式按钮
+            // 版本号（左上角标题右边，避开「设置」两个字的实际宽度）
+            // ★ 2026-11-26：「游戏内「设置」页可见版本号」这句对外承诺写在
+            //   CONTRIBUTING.md 和 Issue 模板里，但运行时代码以前从没读过它 ——
+            //   报 bug 的人照着找会发现根本没有。这里把它兑现。
+            //   Application.version = PlayerSettings.bundleVersion，
+            //   由 P2Build.cs:111 打成 "1.76." + yyyyMMdd，正好是反馈要的格式。
+            //   取不到就整块不画，绝不显示一个孤零零的 "v"。
+            if (!string.IsNullOrEmpty(Application.version))
+            {
+                float gapT = p.width * 0.018f;
+                float vw = p.width * 0.34f;
+                var oldAlign = _small.alignment;
+                _small.fontSize = Mathf.RoundToInt(Mathf.Clamp(p.height * 0.036f, 14f, 30f));
+                _small.alignment = TextAnchor.MiddleRight;
+                Text(new Rect(cr.x - gapT - vw, p.y + pad * 0.6f, vw, p.height * 0.09f),
+                     "v" + Application.version, _small, C_DIM);
+                _small.alignment = oldAlign;
+            }
+
+            // 四个页签
             _btn.fontSize = Mathf.RoundToInt(Mathf.Clamp(p.height * 0.048f, 18f, 38f));
             DrawModeBtn(0, "单机游玩", _tab == 0);
             DrawModeBtn(1, "开服务器", _tab == 1);
             DrawModeBtn(2, "加入游戏", _tab == 2);
+            DrawModeBtn(3, "按键外观", _tab == 3);
 
             float y = _modeBtnBase + p.height * 0.115f + p.height * 0.045f;
             _body.fontSize = BodyFontSize();   // 和 Layout 算命中框用的是同一个值，必须一致
@@ -584,7 +702,7 @@ namespace P2
                 Frame(nb, C_LINE, 2f);
                 Text(nb, "换一个码", _btn, C_TXT);
             }
-            else
+            else if (_tab == 2)
             {
                 // ── 加入游戏 ──
                 Text(new Rect(p.x + pad, y - 6f, p.width - pad * 2, _body.fontSize + 14f),
@@ -652,6 +770,67 @@ namespace P2
                     }
                 }
             }
+            else
+            {
+                // ── 按键外观（2026-11-26 新增，对应 Issue #1：按键超大无法修改）──
+                // 所有矩形由 Layout 算好（_lookMinus/_lookVal/_lookPlus），这里只画，杜绝"看得见点不着"。
+                Text(new Rect(p.x + pad, y, p.width - pad * 2, _lookTop - y),
+                     "手机屏幕大小不一。按键嫌大就调小一档，改完立刻生效，也会记住。", _body, C_DIM);
+
+                DrawLookRow(0, "按键大小", P2VirtualPad.ScaleLabel, P2VirtualPad.ScaleAtMin, P2VirtualPad.ScaleAtMax);
+                DrawLookRow(1, "按键浓淡", P2VirtualPad.AlphaLabel, P2VirtualPad.AlphaAtMin, P2VirtualPad.AlphaAtMax);
+
+                var rb = _lookReset;
+                Fill(rb, C_BTN);
+                Frame(rb, C_LINE, 2f);
+                Text(rb, "恢复默认", _btn, C_TXT);
+
+                // 真实按键预览：和游戏里同一个 DrawFunc，改档位这里当场变
+                if (_lookPrev.width > 0f)
+                {
+                    Fill(_lookPrev, new Color32(14, 11, 8, 255));   // 深底才能看不出按键的描边压暗
+                    Frame(_lookPrev, C_LINE, 2f);
+                    P2VirtualPad.DrawLookPreview(_lookPrev);
+                }
+            }
+        }
+
+        /// <summary>外观页的一行：左标签，右 [−] [值] [+]。矩形全部来自 Layout。</summary>
+        static void DrawLookRow(int i, string label, string val, bool atMin, bool atMax)
+        {
+            var p = _panel;
+            float pad = p.width * 0.035f;
+            float gap = p.width * 0.018f;
+            float lh = _lookVal[i].height;
+
+            // ★ 字号必须在每次 Text 之前设：DrawLookStep 结尾会把 _btn.fontSize 还原成
+            //   页签那档，先设一次会被它冲掉，值框里的字就比标签小一截。
+            int rowFs = Mathf.RoundToInt(Mathf.Clamp(lh * 0.46f, 16f, 40f));
+
+            // 标签宽度**从来**= 从内边距到 [−] 键左边（由 Layout 的 labW 决定），
+            // 这里再手写一个比例迟早对不上，直接由 _lookMinus 反推。
+            _btn.fontSize = rowFs;
+            float labW = _lookMinus[i].x - (p.x + pad) - gap;
+            Text(new Rect(p.x + pad, _lookVal[i].y, labW, lh), label, _btn, C_TXT);
+
+            DrawLookStep(_lookMinus[i], "−", !atMin);
+            DrawLookStep(_lookPlus[i], "+", !atMax);
+
+            var vr = _lookVal[i];
+            Fill(vr, new Color32(16, 12, 9, 255));
+            Frame(vr, C_GOLD, 3f);
+            _btn.fontSize = rowFs;
+            Text(vr, val, _btn, C_GOLD);
+            _btn.fontSize = Mathf.RoundToInt(Mathf.Clamp(p.height * 0.048f, 18f, 38f));
+        }
+
+        static void DrawLookStep(Rect r, string glyph, bool enabled)
+        {
+            Fill(r, enabled ? C_BTN_ON : new Color32(40, 32, 24, 255));
+            Frame(r, enabled ? C_GOLD : new Color32(90, 74, 52, 255), enabled ? 3f : 2f);
+            _btn.fontSize = Mathf.RoundToInt(r.height * 0.62f);
+            Text(r, glyph, _btn, enabled ? C_GOLD : new Color32(110, 96, 74, 255));
+            _btn.fontSize = Mathf.RoundToInt(Mathf.Clamp(_panel.height * 0.048f, 18f, 38f));
         }
 
         /// <summary>中继是不是真的连上了（面板配色用，不要靠猜）。</summary>
