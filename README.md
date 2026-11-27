@@ -194,9 +194,20 @@ APK 体积 799 MB（素材全打进去），超过 GitHub 单文件 100 MB 限�
 
 ---
 
-## 反馈
+## 反馈 · 报问题 · 试用新版
 
-发现问题、想提建议、想贡献代码 → 看 [CONTRIBUTING.md](CONTRIBUTING.md)，或者直接 [开个 Issue](https://github.com/haoxu-dev/mir2-mobile/issues/new)。
+这个项目还在不断改，**你反馈的问题基本都能在当天看到、当天动手**。渠道都在 GitHub 上，不用加群、不用注册别的：
+
+| 你想做什么 | 去哪 | 说明 |
+|---|---|---|
+| 报 bug（闪退 / 画面不对 / 联机连不上 / 按键不好用） | [开 Issue](https://github.com/haoxu-dev/mir2-mobile/issues/new/choose) | 选「Bug 报告」模板，填手机型号、安卓版本、游戏内显示的版本号、怎么复现 |
+| 提功能建议 | [开 Issue](https://github.com/haoxu-dev/mir2-mobile/issues/new/choose) | 选「功能建议」模板 |
+| 想先试刚改好的版本 | [Releases 页](https://github.com/haoxu-dev/mir2-mobile/releases) | 标了 **Pre-release** 的是测试包，更新最勤；反馈时带上版本号我会优先看 |
+| 随便聊 / 分享玩法 / 晒截图 | [讨论区](https://github.com/haoxu-dev/mir2-mobile/discussions) | 不算 bug 也不算建议的都放这 |
+
+**报完问题怎么知道我在修？** 不用反复问——确认的问题会在 Issue 上依次打标签：`待复现` → `已确认` → `修复中` → `已修复待验证`。修好会在 Issue 里回你，你去 Releases 下新版装上确认就行。完整流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+> 报问题时请不要附带任何游戏素材文件（`.Lib` / `.WIL` / `.map` / 音效），版权归原厂，本仓库不接收。
 
 ---
 

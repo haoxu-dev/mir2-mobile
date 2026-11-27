@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 闲聊 / 想法 / 展示
+    url: https://github.com/haoxu-dev/mir2-mobile/discussions
+    about: 不是 bug、也不是明确的功能建议，就去讨论区随便聊
+  - name: 📥 下载最新版安装包
+    url: https://github.com/haoxu-dev/mir2-mobile/releases/latest
+    about: 报问题前先确认是不是最新版，很多问题新版已经修了
