@@ -57,19 +57,19 @@ public static class P2VirtualPad
     //  等比缩放的好处是「画」和「点」永远共用同一套数（GetCenters / CastCenter），
     //  改一个 _S 两边同时生效，不可能出现「画在这儿、点在那儿」。
     // ══════════════════════════════════════════════════════════════
-    static float _S = 1f;           // 全局缩放系数（0.80 ~ 1.30，四档）
-    static int _scaleStep = 1;      // 档位下标：0=小 1=标准 2=大 3=特大
+    static float _S = 1f;           // 全局缩放系数（0.66 ~ 1.30，五档）
+    static int _scaleStep = 2;      // 档位下标：0=超小 1=小 2=标准 3=大 4=特大
     static int _alphaStep = 1;      // 按键浓淡档位：0=淡 1=标准 2=明显
 
     public static float UiScale { get { return _S; } }
 
     /// <summary>档位→系数。标准档必须正好是 1.0（否则等于把现有布局整体改了）。</summary>
-    static readonly float[] ScaleTable = { 0.80f, 1.00f, 1.15f, 1.30f };
-    static readonly string[] ScaleName = { "小", "标准", "大", "特大" };
+    static readonly float[] ScaleTable = { 0.66f, 0.80f, 1.00f, 1.15f, 1.30f };
+    static readonly string[] ScaleName = { "超小", "小", "标准", "大", "特大" };
     static readonly float[] IdleAlphaTable = { 0.34f, 0.45f, 0.60f };
     static readonly string[] AlphaName = { "淡", "标准", "明显" };
     /// <summary>各档愿意把键缝收紧到原值的几分之几（见 FitScale）。小档不用收，越大越要收。</summary>
-    static readonly float[] GapShrinkK = { 1.00f, 1.00f, 0.55f, 0.28f };
+    static readonly float[] GapShrinkK = { 1.00f, 1.00f, 1.00f, 0.55f, 0.28f };
 
     static float HotRadius { get { return 225f * _S; } }   // 摇杆热区半径（手指落在这个圆里就算按到摇杆）
     static float StickRadius { get { return 118f * _S; } } // 摇杆头最大行程
@@ -189,7 +189,7 @@ public static class P2VirtualPad
     //
     // 存 PlayerPrefs 而不是存文件：P2NetMode 的联机设置也走 PlayerPrefs，
     // Android 上就是 SharedPreferences，卸载前一直有效，不用自己管路径和权限。
-    const string PrefScale = "p2.pad.scale";   // 0..3
+    const string PrefScale = "p2.pad.scale";   // 0..4
     const string PrefAlpha = "p2.pad.alpha";   // 0..2
     static bool _lookLoaded;
 
@@ -197,7 +197,18 @@ public static class P2VirtualPad
     {
         if (_lookLoaded) return;
         _lookLoaded = true;
-        _scaleStep = Mathf.Clamp(PlayerPrefs.GetInt(PrefScale, 1), 0, ScaleTable.Length - 1);
+        const string MigratedKey = "p2.pad.scale.v2";
+        int saved = PlayerPrefs.GetInt(PrefScale, 1);
+        // 2026-11-27：新增「超小」插在最前，所有旧下标（含 0=小）整体 +1，老玩家的大小不变。
+        // 只迁一次并写回：否则每次启动都 +1 会漂到特大，或标记在但值没改会退回旧档。
+        if (PlayerPrefs.GetInt(MigratedKey, 0) == 0)
+        {
+            saved += 1;
+            PlayerPrefs.SetInt(PrefScale, saved);
+            PlayerPrefs.SetInt(MigratedKey, 1);
+            PlayerPrefs.Save();
+        }
+        _scaleStep = Mathf.Clamp(saved, 0, ScaleTable.Length - 1);
         _alphaStep = Mathf.Clamp(PlayerPrefs.GetInt(PrefAlpha, 1), 0, IdleAlphaTable.Length - 1);
         _S = ScaleTable[_scaleStep];
     }
@@ -277,7 +288,7 @@ public static class P2VirtualPad
     public static void ResetLook()
     {
         LoadLook();
-        _scaleStep = 1;
+        _scaleStep = 2;
         _alphaStep = 1;
         _S = ScaleTable[_scaleStep];
         SaveLook();
